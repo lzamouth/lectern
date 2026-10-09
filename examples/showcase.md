@@ -78,6 +78,27 @@ A loose list:
 
 Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy.<!-- a hidden comment -->
 
+## Tables
+
+Drag the vertical lines to resize a column, double-click them to fit the
+column to its content.
+
+| Feature | Status | Notes |
+|:--------|:------:|------:|
+| Headings and paragraphs | ✓ | Step 1 |
+| Lists and quotes | ✓ | Step 2 |
+| Code blocks | ✓ | Step 3 |
+| Tables with *resizable* columns | ✓ | Step 4, with a [link](#lectern-showcase) |
+| Images | — | Step 5 |
+
+A wide table scrolls horizontally when its columns cannot shrink further:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `margin` | integer | `24` | Space between the window edges and the text, in pixels. It is applied on both sides of the content. |
+| `font` | string | system | Font used for proportional text. When unset, the document font of the desktop is used. |
+| `monospace-font` | string | system | Font used for code. When unset, the monospace font of the desktop is used instead. |
+
 ## Code
 
 Fenced code blocks are highlighted according to their language:

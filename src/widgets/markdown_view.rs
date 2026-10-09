@@ -9,7 +9,7 @@ use gtk::glib::subclass::Signal;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib, graphene, pango};
 
-use super::CodeBlock;
+use super::{CodeBlock, Table};
 use crate::document::{Block, Document, List, ListKind, Span};
 
 const HEADING_SCALES: [f64; 6] = [2.0, 1.6, 1.35, 1.17, 1.0, 0.9];
@@ -43,7 +43,9 @@ struct Embedded {
 	/// Buffer offset of the anchor.
 	offset: i32,
 	indent: i32,
-	widget: CodeBlock,
+	widget: gtk::Widget,
+	/// Text copied in place of the widget.
+	text: String,
 }
 
 /// Graphics drawn below the text. Offsets are buffer character offsets.
@@ -176,6 +178,24 @@ impl MarkdownView {
 			buffer.delete_mark(mark);
 		}
 		buffer.place_cursor(&buffer.start_iter());
+	}
+
+	/// Creates a view showing a single paragraph, for a table cell.
+	pub fn new_cell(content: &[Span], justification: gtk::Justification) -> Self {
+		let view: Self = glib::Object::new();
+		view.set_justification(justification);
+		view.set_document(&Document {
+			blocks: vec![Block::Paragraph(content.to_vec())],
+		});
+		view
+	}
+
+	/// Sets the horizontal and vertical margins around the text.
+	pub fn set_margins(&self, horizontal: i32, vertical: i32) {
+		self.set_left_margin(horizontal);
+		self.set_right_margin(horizontal);
+		self.set_top_margin(vertical);
+		self.set_bottom_margin(vertical);
 	}
 
 	/// Scrolls to the heading with the given anchor. Returns whether it exists.
@@ -348,6 +368,9 @@ impl MarkdownView {
 			let width = (text_width - embedded.indent).max(1);
 			if embedded.widget.width_request() != width {
 				embedded.widget.set_size_request(width, -1);
+				if let Some(table) = embedded.widget.downcast_ref::<Table>() {
+					table.fit(width);
+				}
 			}
 		}
 	}
@@ -365,7 +388,7 @@ impl MarkdownView {
 				continue;
 			}
 			if let Some(embedded) = embedded.iter().find(|embedded| embedded.offset == offset) {
-				text.push_str(&embedded.widget.text());
+				text.push_str(&embedded.text);
 			}
 		}
 		Some(text)
@@ -514,13 +537,17 @@ impl Renderer<'_> {
 			}
 			Block::Code { info, text } => {
 				let widget = CodeBlock::new(text, info);
-				let anchor = self.buffer.create_child_anchor(&mut self.buffer.end_iter());
-				self.view.add_child_at_anchor(&widget, &anchor);
-				self.embedded.push(Embedded {
-					offset: start,
-					indent: context.indent,
-					widget,
+				self.embed(widget.upcast(), text.clone(), context);
+				self.end_leaf_block(start, context);
+			}
+			Block::Table(table) => {
+				let view = self.view.downgrade();
+				let widget = Table::new(table, move |url| {
+					if let Some(view) = view.upgrade() {
+						view.emit_by_name::<()>("link-activated", &[&url]);
+					}
 				});
+				self.embed(widget.upcast(), table.to_tsv(), context);
 				self.end_leaf_block(start, context);
 			}
 			Block::Quote(blocks) => {
@@ -608,6 +635,19 @@ impl Renderer<'_> {
 				.apply_tag(&hang, &first_line_start, &first_line_end);
 		}
 		self.set_last_line_spacing(context.spacing);
+	}
+
+	/// Embeds a widget at the end of the buffer.
+	fn embed(&mut self, widget: gtk::Widget, text: String, context: Context) {
+		let offset = self.offset();
+		let anchor = self.buffer.create_child_anchor(&mut self.buffer.end_iter());
+		self.view.add_child_at_anchor(&widget, &anchor);
+		self.embedded.push(Embedded {
+			offset,
+			indent: context.indent,
+			widget,
+			text,
+		});
 	}
 
 	fn spans(&mut self, spans: &[Span], block_tags: &[&str]) {
@@ -703,12 +743,19 @@ impl Renderer<'_> {
 		self.buffer.apply_tag(&tag, &line_start, &end);
 	}
 
-	/// Removes the newline ending the last block.
+	/// Removes the newline and the spacing ending the last block.
 	fn finish(&self) {
 		let mut end = self.buffer.end_iter();
 		let mut last = end;
 		if last.backward_char() && last.char() == '\n' {
 			self.buffer.delete(&mut last, &mut end);
+		}
+		let end = self.buffer.end_iter();
+		let mut line_start = end;
+		line_start.set_line_offset(0);
+		for value in SPACINGS {
+			self.buffer
+				.remove_tag_by_name(&spacing_tag_name(value), &line_start, &end);
 		}
 	}
 }

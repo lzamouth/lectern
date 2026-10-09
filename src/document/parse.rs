@@ -1,7 +1,9 @@
-use comrak::nodes::{AstNode, ListDelimType, ListType, NodeValue};
+use comrak::nodes::{AstNode, ListDelimType, ListType, NodeValue, TableAlignment};
 use comrak::{Anchorizer, Arena, Options};
 
-use super::{Block, Document, List, ListItem, ListKind, Span, Style, html, plain_text};
+use super::{
+	Alignment, Block, Document, List, ListItem, ListKind, Span, Style, Table, html, plain_text,
+};
 
 pub fn parse(markdown: &str) -> Document {
 	let mut options = Options::default();
@@ -97,20 +99,32 @@ impl Builder {
 					items,
 				}));
 			}
-			// Provisional rendering until tables get their own widget.
-			NodeValue::TableRow(header) => {
-				let mut content = Vec::new();
-				for (index, cell) in node.children().enumerate() {
-					if index > 0 {
-						content.push(Span::plain(" │ "));
-					}
-					let style = Style {
-						strong: *header,
-						..Style::default()
-					};
-					collect_inlines(cell, style, None, &mut content);
-				}
-				blocks.push(Block::Paragraph(content));
+			NodeValue::Table(table) => {
+				let alignments = table
+					.alignments
+					.iter()
+					.map(|alignment| match alignment {
+						TableAlignment::None => Alignment::Default,
+						TableAlignment::Left => Alignment::Left,
+						TableAlignment::Center => Alignment::Center,
+						TableAlignment::Right => Alignment::Right,
+					})
+					.collect();
+				let mut rows = node.children().map(|row| {
+					row.children()
+						.map(|cell| {
+							let mut content = Vec::new();
+							collect_inlines(cell, Style::default(), None, &mut content);
+							content
+						})
+						.collect::<Vec<_>>()
+				});
+				let header = rows.next().unwrap_or_default();
+				blocks.push(Block::Table(Table {
+					alignments,
+					header,
+					rows: rows.collect(),
+				}));
 			}
 			_ => {
 				for child in node.children() {
@@ -351,6 +365,27 @@ mod tests {
 			document.blocks,
 			[Block::Paragraph(vec![Span::plain("Press Ctrl.")])]
 		);
+	}
+
+	#[test]
+	fn tables() {
+		let document = parse("| a | *b* |\n|:--|--:|\n| 1 | 2 |\n| 3 |\n");
+		let cell = |text| vec![Span::plain(text)];
+		let emphasis = vec![Span {
+			text: "b".to_owned(),
+			style: Style {
+				emphasis: true,
+				..Style::default()
+			},
+			link: None,
+		}];
+		let table = Table {
+			alignments: vec![Alignment::Left, Alignment::Right],
+			header: vec![cell("a"), emphasis],
+			rows: vec![vec![cell("1"), cell("2")], vec![cell("3"), vec![]]],
+		};
+		assert_eq!(table.to_tsv(), "a\tb\n1\t2\n3\t");
+		assert_eq!(document.blocks, [Block::Table(table)]);
 	}
 
 	#[test]

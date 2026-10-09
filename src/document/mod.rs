@@ -25,7 +25,43 @@ pub enum Block {
 	},
 	Quote(Vec<Block>),
 	List(List),
+	Table(Table),
 	ThematicBreak,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Table {
+	pub alignments: Vec<Alignment>,
+	pub header: Vec<Cell>,
+	pub rows: Vec<Vec<Cell>>,
+}
+
+impl Table {
+	/// Tab-separated text of the table, one row per line.
+	pub fn to_tsv(&self) -> String {
+		std::iter::once(&self.header)
+			.chain(&self.rows)
+			.map(|row| {
+				row.iter()
+					.map(|cell| plain_text(cell).replace(['\t', '\n'], " "))
+					.collect::<Vec<_>>()
+					.join("\t")
+			})
+			.collect::<Vec<_>>()
+			.join("\n")
+	}
+}
+
+/// Content of a table cell.
+pub type Cell = Vec<Span>;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Alignment {
+	#[default]
+	Default,
+	Left,
+	Center,
+	Right,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
