@@ -1,8 +1,10 @@
+mod appearance;
 mod application;
 mod config;
 #[cfg(debug_assertions)]
 mod devtools;
 mod document;
+mod preferences_dialog;
 mod recent;
 mod search;
 mod uri;

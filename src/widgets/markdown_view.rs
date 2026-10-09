@@ -10,6 +10,7 @@ use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib, graphene, pango};
 
 use super::{CodeBlock, Image, Table};
+use crate::appearance;
 use crate::document::{Block, Document, List, ListKind, Span};
 use crate::search::{self, SearchOptions};
 use crate::uri;
@@ -202,6 +203,7 @@ impl MarkdownView {
 	/// Shows `document`. Relative paths are resolved against `base_dir`.
 	pub fn set_document(&self, document: &Document, base_dir: Option<&gio::File>) {
 		let buffer = self.buffer();
+		self.update_code_font();
 		// The matches refer to the views being destroyed.
 		self.imp().matches.take();
 		self.imp().current_match.set(None);
@@ -510,6 +512,7 @@ impl MarkdownView {
 	}
 
 	fn setup(&self) {
+		self.add_css_class("markdown-view");
 		self.set_editable(false);
 		self.set_cursor_visible(false);
 		self.set_wrap_mode(gtk::WrapMode::WordChar);
@@ -639,6 +642,14 @@ impl MarkdownView {
 			.name("link")
 			.underline(pango::Underline::Single)
 			.build());
+	}
+
+	/// Uses the monospace font of the preferences for inline code.
+	fn update_code_font(&self) {
+		let family = appearance::monospace_font().family();
+		if let Some(tag) = self.buffer().tag_table().lookup("code") {
+			tag.set_family(Some(family.as_deref().unwrap_or("monospace")));
+		}
 	}
 
 	/// Width available for text, excluding the view margins.

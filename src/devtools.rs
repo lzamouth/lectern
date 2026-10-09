@@ -5,6 +5,7 @@
 //! `LECTERN_SNAPSHOT_SIZE=WIDTHxHEIGHT` resizes the window before the picture.
 //! `LECTERN_SNAPSHOT_SEARCH=text` searches the text before the picture.
 //! `LECTERN_SNAPSHOT_DELAY=milliseconds` waits longer before the picture.
+//! `LECTERN_SNAPSHOT_ACTION=app.name` activates an action before the picture.
 
 use std::time::Duration;
 
@@ -16,6 +17,9 @@ pub fn snapshot_if_requested(window: &impl IsA<gtk::Window>) {
 		return;
 	};
 	let window = window.as_ref().clone();
+	if let Ok(action) = std::env::var("LECTERN_SNAPSHOT_ACTION") {
+		let _ = window.activate_action(&action, None);
+	}
 	let size = std::env::var("LECTERN_SNAPSHOT_SIZE")
 		.ok()
 		.and_then(|size| {

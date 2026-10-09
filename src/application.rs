@@ -3,7 +3,9 @@ use adw::subclass::prelude::*;
 use gettextrs::gettext;
 use gtk::{gio, glib};
 
+use crate::appearance;
 use crate::config;
+use crate::preferences_dialog::LecternPreferencesDialog;
 use crate::window::LecternWindow;
 
 mod imp {
@@ -25,6 +27,7 @@ mod imp {
 		fn startup(&self) {
 			self.parent_startup();
 			sourceview5::init();
+			appearance::init();
 			let app = self.obj();
 			app.setup_actions();
 			app.setup_accels();
@@ -84,18 +87,24 @@ impl LecternApplication {
 		let new_window = gio::ActionEntry::builder("new-window")
 			.activate(|app: &Self, _, _| LecternWindow::new(app).present())
 			.build();
+		let preferences = gio::ActionEntry::builder("preferences")
+			.activate(|app: &Self, _, _| {
+				LecternPreferencesDialog::new().present(app.active_window().as_ref());
+			})
+			.build();
 		let about = gio::ActionEntry::builder("about")
 			.activate(|app: &Self, _, _| app.show_about())
 			.build();
 		let quit = gio::ActionEntry::builder("quit")
 			.activate(|app: &Self, _, _| app.quit())
 			.build();
-		self.add_action_entries([new_window, about, quit]);
+		self.add_action_entries([new_window, preferences, about, quit]);
 	}
 
 	fn setup_accels(&self) {
 		self.set_accels_for_action("app.new-window", &["<Control>n"]);
 		self.set_accels_for_action("app.quit", &["<Control>q"]);
+		self.set_accels_for_action("app.preferences", &["<Control>comma"]);
 		self.set_accels_for_action("win.open", &["<Control>o"]);
 		self.set_accels_for_action("win.find", &["<Control>f"]);
 		self.set_accels_for_action("win.find-next", &["<Control>g"]);

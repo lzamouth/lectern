@@ -1,0 +1,78 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $LecternPreferencesDialog: Adw.PreferencesDialog {
+	Adw.PreferencesPage {
+		Adw.PreferencesGroup {
+			title: _("Appearance");
+
+			Adw.ActionRow {
+				title: _("Style");
+
+				[suffix]
+				Adw.ToggleGroup color_scheme_toggles {
+					valign: center;
+
+					Adw.Toggle {
+						name: "system";
+						label: _("System");
+					}
+
+					Adw.Toggle {
+						name: "light";
+						label: _("Light");
+					}
+
+					Adw.Toggle {
+						name: "dark";
+						label: _("Dark");
+					}
+				}
+			}
+
+			Adw.SpinRow margin_row {
+				title: _("Margin");
+				subtitle: _("Space on each side of the text, in pixels");
+
+				adjustment: Gtk.Adjustment {
+					lower: 0;
+					upper: 400;
+					step-increment: 4;
+					page-increment: 24;
+				};
+			}
+		}
+
+		Adw.PreferencesGroup {
+			title: _("Fonts");
+
+			Adw.SwitchRow system_fonts_row {
+				title: _("Use System Fonts");
+			}
+
+			Adw.ActionRow document_font_row {
+				title: _("Document Font");
+				sensitive: bind system_fonts_row.active inverted;
+
+				[suffix]
+				Gtk.FontDialogButton document_font_button {
+					valign: center;
+
+					dialog: Gtk.FontDialog {
+						title: _("Document Font");
+					};
+				}
+			}
+
+			Adw.ActionRow monospace_font_row {
+				title: _("Monospace Font");
+				sensitive: bind system_fonts_row.active inverted;
+
+				[suffix]
+				Gtk.FontDialogButton monospace_font_button {
+					valign: center;
+				}
+			}
+		}
+	}
+}

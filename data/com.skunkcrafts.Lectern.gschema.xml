@@ -13,6 +13,36 @@
 			<default>false</default>
 			<summary>Whether the window is maximized</summary>
 		</key>
+		<key name="color-scheme" type="s">
+			<choices>
+				<choice value="system"/>
+				<choice value="light"/>
+				<choice value="dark"/>
+			</choices>
+			<default>"system"</default>
+			<summary>Color scheme</summary>
+			<description>Whether to follow the system style, or to always use a light or dark style.</description>
+		</key>
+		<key name="margin" type="i">
+			<range min="0" max="400"/>
+			<default>24</default>
+			<summary>Margin</summary>
+			<description>Space between the window edges and the text, in pixels.</description>
+		</key>
+		<key name="use-system-fonts" type="b">
+			<default>true</default>
+			<summary>Whether to use the fonts of the system</summary>
+		</key>
+		<key name="document-font" type="s">
+			<default>"Sans 11"</default>
+			<summary>Document font</summary>
+			<description>Font of the text, when not using the fonts of the system.</description>
+		</key>
+		<key name="monospace-font" type="s">
+			<default>"Monospace 11"</default>
+			<summary>Monospace font</summary>
+			<description>Font of the code, when not using the fonts of the system.</description>
+		</key>
 		<key name="search-case-sensitive" type="b">
 			<default>false</default>
 			<summary>Whether search matches case</summary>

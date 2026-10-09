@@ -1,7 +1,9 @@
 data/com.skunkcrafts.Lectern.desktop.in
 data/com.skunkcrafts.Lectern.gschema.xml
 data/com.skunkcrafts.Lectern.metainfo.xml.in
+data/resources/ui/preferences_dialog.blp
 data/resources/ui/window.blp
 src/application.rs
+src/preferences_dialog.rs
 src/widgets/code_block.rs
 src/window.rs

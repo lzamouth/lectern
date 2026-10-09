@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 21:46+0200\n"
+"POT-Creation-Date: 2026-10-09 21:49+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -45,11 +45,51 @@ msgstr "Hauteur de la fenêtre"
 msgid "Whether the window is maximized"
 msgstr "Indique si la fenêtre est maximisée"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:18
+#: data/com.skunkcrafts.Lectern.gschema.xml:23
+msgid "Color scheme"
+msgstr "Jeu de couleurs"
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:24
+msgid ""
+"Whether to follow the system style, or to always use a light or dark style."
+msgstr ""
+"Indique s’il faut suivre le style du système, ou toujours utiliser un style "
+"clair ou sombre."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:29
+#: data/resources/ui/preferences_dialog.blp:34
+msgid "Margin"
+msgstr "Marge"
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:30
+msgid "Space between the window edges and the text, in pixels."
+msgstr "Espace entre les bords de la fenêtre et le texte, en pixels."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:34
+msgid "Whether to use the fonts of the system"
+msgstr "Indique s’il faut utiliser les polices du système"
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:38
+msgid "Document font"
+msgstr "Police du document"
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:39
+msgid "Font of the text, when not using the fonts of the system."
+msgstr "Police du texte, lorsque les polices du système ne sont pas utilisées."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:43
+msgid "Monospace font"
+msgstr "Police à chasse fixe"
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:44
+msgid "Font of the code, when not using the fonts of the system."
+msgstr "Police du code, lorsque les polices du système ne sont pas utilisées."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:48
 msgid "Whether search matches case"
 msgstr "Indique si la recherche respecte la casse"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:22
+#: data/com.skunkcrafts.Lectern.gschema.xml:52
 msgid "Whether search only matches whole words"
 msgstr "Indique si la recherche ne trouve que des mots entiers"
 
@@ -64,6 +104,47 @@ msgstr ""
 #: data/com.skunkcrafts.Lectern.metainfo.xml.in:39
 msgid "Initial development version."
 msgstr "Version de développement initiale."
+
+#: data/resources/ui/preferences_dialog.blp:7
+msgid "Appearance"
+msgstr "Apparence"
+
+#: data/resources/ui/preferences_dialog.blp:10
+msgid "Style"
+msgstr "Style"
+
+#: data/resources/ui/preferences_dialog.blp:18
+msgid "System"
+msgstr "Système"
+
+#: data/resources/ui/preferences_dialog.blp:23
+msgid "Light"
+msgstr "Clair"
+
+#: data/resources/ui/preferences_dialog.blp:28
+msgid "Dark"
+msgstr "Sombre"
+
+#: data/resources/ui/preferences_dialog.blp:35
+msgid "Space on each side of the text, in pixels"
+msgstr "Espace de chaque côté du texte, en pixels"
+
+#: data/resources/ui/preferences_dialog.blp:47
+msgid "Fonts"
+msgstr "Polices"
+
+#: data/resources/ui/preferences_dialog.blp:50
+msgid "Use System Fonts"
+msgstr "Utiliser les polices du système"
+
+#: data/resources/ui/preferences_dialog.blp:54
+#: data/resources/ui/preferences_dialog.blp:62
+msgid "Document Font"
+msgstr "Police du document"
+
+#: data/resources/ui/preferences_dialog.blp:68 src/preferences_dialog.rs:102
+msgid "Monospace Font"
+msgstr "Police à chasse fixe"
 
 #: data/resources/ui/window.blp:16
 msgid "Open…"
@@ -126,11 +207,15 @@ msgid "_New Window"
 msgstr "_Nouvelle fenêtre"
 
 #: data/resources/ui/window.blp:217
+msgid "_Preferences"
+msgstr "_Préférences"
+
+#: data/resources/ui/window.blp:222
 msgid "_About Lectern"
 msgstr "À _propos de Lectern"
 
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-#: src/application.rs:117
+#: src/application.rs:126
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
@@ -138,22 +223,22 @@ msgstr "Skunkcrafts"
 msgid "Copy"
 msgstr "Copier"
 
-#: src/window.rs:188
+#: src/window.rs:201
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:447
+#: src/window.rs:501
 msgid "{current} of {count}"
 msgstr "{current} sur {count}"
 
-#: src/window.rs:450
+#: src/window.rs:504
 msgid "No results"
 msgstr "Aucun résultat"
 
-#: src/window.rs:502
+#: src/window.rs:556
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:511
+#: src/window.rs:565
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"

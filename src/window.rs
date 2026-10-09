@@ -1,4 +1,4 @@
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
 use std::time::Duration;
 
 use adw::prelude::*;
@@ -6,8 +6,8 @@ use adw::subclass::prelude::*;
 use gettextrs::gettext;
 use gtk::{gdk, gio, glib};
 
+use crate::appearance;
 use crate::application::LecternApplication;
-use crate::config;
 use crate::document;
 use crate::recent;
 use crate::search::SearchOptions;
@@ -52,11 +52,14 @@ mod imp {
 		#[template_child]
 		pub match_label: TemplateChild<gtk::Label>,
 		pub file: RefCell<Option<gio::File>>,
+		/// The document shown, to render it again when the preferences change.
+		pub document: RefCell<Option<document::Document>>,
+		pub rendering_handlers: RefCell<Vec<glib::SignalHandlerId>>,
+		pub rerender_source: RefCell<Option<glib::SourceId>>,
 		pub file_monitor: RefCell<Option<gio::FileMonitor>>,
 		/// Pending reload, delayed until the file stops changing.
 		pub reload_source: RefCell<Option<glib::SourceId>>,
 		pub recent_handler: RefCell<Option<glib::SignalHandlerId>>,
-		pub settings: OnceCell<gio::Settings>,
 	}
 
 	#[glib::object_subclass]
@@ -105,6 +108,10 @@ mod imp {
 			if let Some(handler) = self.recent_handler.take() {
 				gtk::RecentManager::default().disconnect(handler);
 			}
+			appearance::disconnect_rendering_changed(self.rendering_handlers.take());
+			if let Some(source) = self.rerender_source.take() {
+				source.remove();
+			}
 		}
 
 		fn constructed(&self) {
@@ -115,6 +122,12 @@ mod imp {
 			obj.action_set_enabled("win.find", false);
 			obj.setup_recent_files();
 			obj.setup_drop_target();
+			let handlers = appearance::connect_rendering_changed(glib::clone!(
+				#[weak]
+				obj,
+				move || obj.schedule_rerender()
+			));
+			self.rendering_handlers.replace(handlers);
 			self.markdown_view.connect_link_activated(glib::clone!(
 				#[weak]
 				obj,
@@ -197,15 +210,11 @@ impl LecternWindow {
 			return;
 		}
 
-		let view = &imp.markdown_view;
-		let state = reload.then(|| view.view_state());
-		let current_match = view.match_position().0;
-		view.set_document(&document::parse(&text), file.parent().as_ref());
-
-		if let Some(state) = state {
-			view.restore_view_state(&state);
-			self.search(Some(current_match.unwrap_or_default()), false);
+		let document = document::parse(&text);
+		if reload {
+			self.show_document(&document, &file, true);
 		} else {
+			self.show_document(&document, &file, false);
 			self.update_title(&file);
 			self.watch(&file);
 			recent::add(&file);
@@ -214,6 +223,8 @@ impl LecternWindow {
 			self.enable_search();
 			self.search(Some(0), true);
 		}
+
+		imp.document.replace(Some(document));
 
 		#[cfg(debug_assertions)]
 		if !reload {
@@ -292,6 +303,49 @@ impl LecternWindow {
 			}
 		));
 		self.add_controller(target);
+	}
+
+	/// Renders `document`, read from `file`. When `keep_state` is set, the
+	/// document replaces a version of itself: the reading position, the
+	/// column widths and the selected search match are kept.
+	fn show_document(&self, document: &document::Document, file: &gio::File, keep_state: bool) {
+		let view = &self.imp().markdown_view;
+		let state = keep_state.then(|| view.view_state());
+		let current_match = view.match_position().0;
+		let margin = appearance::margin();
+		view.set_left_margin(margin);
+		view.set_right_margin(margin);
+		view.set_document(document, file.parent().as_ref());
+		if let Some(state) = state {
+			view.restore_view_state(&state);
+			self.search(Some(current_match.unwrap_or_default()), false);
+		}
+	}
+
+	/// Renders the document again once the new style is applied, after a
+	/// change of the preferences. Several changes are coalesced.
+	fn schedule_rerender(&self) {
+		let imp = self.imp();
+		if imp.rerender_source.borrow().is_some() {
+			return;
+		}
+		let source = glib::idle_add_local_once(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move || {
+				window.imp().rerender_source.take();
+				window.rerender();
+			}
+		));
+		imp.rerender_source.replace(Some(source));
+	}
+
+	fn rerender(&self) {
+		let imp = self.imp();
+		let (Some(document), Some(file)) = (imp.document.borrow().clone(), self.file()) else {
+			return;
+		};
+		self.show_document(&document, &file, true);
 	}
 
 	/// Reloads the document when its file changes.
@@ -538,10 +592,8 @@ impl LecternWindow {
 		self.imp().toast_overlay.add_toast(adw::Toast::new(message));
 	}
 
-	fn settings(&self) -> &gio::Settings {
-		self.imp()
-			.settings
-			.get_or_init(|| gio::Settings::new(config::APP_ID))
+	fn settings(&self) -> gio::Settings {
+		appearance::settings()
 	}
 
 	fn load_window_state(&self) {
