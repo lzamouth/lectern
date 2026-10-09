@@ -3,6 +3,7 @@ mod config;
 #[cfg(debug_assertions)]
 mod devtools;
 mod document;
+mod recent;
 mod search;
 mod uri;
 mod widgets;

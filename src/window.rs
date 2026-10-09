@@ -4,11 +4,12 @@ use std::time::Duration;
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gettextrs::gettext;
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib};
 
 use crate::application::LecternApplication;
 use crate::config;
 use crate::document;
+use crate::recent;
 use crate::search::SearchOptions;
 use crate::uri;
 use crate::widgets::MarkdownView;
@@ -33,6 +34,18 @@ mod imp {
 		#[template_child]
 		pub markdown_view: TemplateChild<MarkdownView>,
 		#[template_child]
+		pub recent_popover: TemplateChild<gtk::Popover>,
+		#[template_child]
+		pub recent_stack: TemplateChild<gtk::Stack>,
+		#[template_child]
+		pub recent_list: TemplateChild<gtk::ListBox>,
+		#[template_child]
+		pub empty_recent_clamp: TemplateChild<adw::Clamp>,
+		#[template_child]
+		pub empty_recent_list: TemplateChild<gtk::ListBox>,
+		#[template_child]
+		pub search_button: TemplateChild<gtk::ToggleButton>,
+		#[template_child]
 		pub search_bar: TemplateChild<gtk::SearchBar>,
 		#[template_child]
 		pub search_entry: TemplateChild<gtk::SearchEntry>,
@@ -42,6 +55,7 @@ mod imp {
 		pub file_monitor: RefCell<Option<gio::FileMonitor>>,
 		/// Pending reload, delayed until the file stops changing.
 		pub reload_source: RefCell<Option<glib::SourceId>>,
+		pub recent_handler: RefCell<Option<glib::SignalHandlerId>>,
 		pub settings: OnceCell<gio::Settings>,
 	}
 
@@ -57,6 +71,16 @@ mod imp {
 			klass.install_action_async("win.open", None, |window, _, _| async move {
 				window.choose_file().await;
 			});
+			klass.install_action(
+				"win.open-recent",
+				Some(glib::VariantTy::STRING),
+				|window, _, uri| {
+					window.imp().recent_popover.popdown();
+					if let Some(uri) = uri.and_then(|uri| uri.get::<String>()) {
+						window.open_file(&gio::File::for_uri(&uri));
+					}
+				},
+			);
 			klass.install_action("win.find", None, |window, _, _| {
 				let imp = window.imp();
 				imp.search_bar.set_search_mode(true);
@@ -77,11 +101,20 @@ mod imp {
 	}
 
 	impl ObjectImpl for LecternWindow {
+		fn dispose(&self) {
+			if let Some(handler) = self.recent_handler.take() {
+				gtk::RecentManager::default().disconnect(handler);
+			}
+		}
+
 		fn constructed(&self) {
 			self.parent_constructed();
 			let obj = self.obj();
 			obj.load_window_state();
 			obj.setup_search();
+			obj.action_set_enabled("win.find", false);
+			obj.setup_recent_files();
+			obj.setup_drop_target();
 			self.markdown_view.connect_link_activated(glib::clone!(
 				#[weak]
 				obj,
@@ -175,8 +208,10 @@ impl LecternWindow {
 		} else {
 			self.update_title(&file);
 			self.watch(&file);
+			recent::add(&file);
 			imp.file.replace(Some(file));
 			imp.stack.set_visible_child_name("document");
+			self.enable_search();
 			self.search(Some(0), true);
 		}
 
@@ -188,6 +223,75 @@ impl LecternWindow {
 			}
 			crate::devtools::snapshot_if_requested(self);
 		}
+	}
+
+	fn setup_recent_files(&self) {
+		let imp = self.imp();
+		let handler = gtk::RecentManager::default().connect_changed(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_| window.update_recent_files()
+		));
+		imp.recent_handler.replace(Some(handler));
+
+		self.update_recent_files();
+	}
+
+	fn update_recent_files(&self) {
+		let imp = self.imp();
+		let files = recent::files();
+		for list in [&*imp.recent_list, &*imp.empty_recent_list] {
+			list.remove_all();
+			for file in &files {
+				let row = adw::ActionRow::builder()
+					.title(glib::markup_escape_text(&display_name(file)))
+					.subtitle(glib::markup_escape_text(
+						&file
+							.parent()
+							.map(|dir| display_dir(&dir))
+							.unwrap_or_default(),
+					))
+					.activatable(true)
+					.action_name("win.open-recent")
+					.action_target(&file.uri().to_variant())
+					.build();
+				list.append(&row);
+			}
+		}
+		imp.recent_stack
+			.set_visible_child_name(if files.is_empty() { "empty" } else { "list" });
+		imp.empty_recent_clamp.set_visible(!files.is_empty());
+	}
+
+	/// Opens files dropped on the window: the first one in this window, the
+	/// others in new windows.
+	fn setup_drop_target(&self) {
+		let target = gtk::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);
+		target.connect_drop(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			#[upgrade_or]
+			false,
+			move |_, value, _, _| {
+				let Ok(files) = value.get::<gdk::FileList>() else {
+					return false;
+				};
+				let mut files = files.files().into_iter();
+				let Some(first) = files.next() else {
+					return false;
+				};
+				window.open_file(&first);
+				if let Some(app) = window.application().and_downcast::<LecternApplication>() {
+					for file in files {
+						let other = LecternWindow::new(&app);
+						other.open_file(&file);
+						other.present();
+					}
+				}
+				true
+			}
+		));
+		self.add_controller(target);
 	}
 
 	/// Reloads the document when its file changes.
@@ -239,6 +343,15 @@ impl LecternWindow {
 			),
 		);
 		imp.reload_source.replace(Some(source));
+	}
+
+	/// Makes the search available, once a document is shown.
+	fn enable_search(&self) {
+		let imp = self.imp();
+		imp.search_button.set_visible(true);
+		// Typing in the window starts searching.
+		imp.search_bar.set_key_capture_widget(Some(self));
+		self.action_set_enabled("win.find", true);
 	}
 
 	fn setup_search(&self) {

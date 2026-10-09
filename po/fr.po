@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 21:45+0200\n"
+"POT-Creation-Date: 2026-10-09 21:46+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -69,60 +69,68 @@ msgstr "Version de développement initiale."
 msgid "Open…"
 msgstr "Ouvrir…"
 
-#: data/resources/ui/window.blp:28
+#: data/resources/ui/window.blp:17 data/resources/ui/window.blp:158
+msgid "Recent Files"
+msgstr "Fichiers récents"
+
+#: data/resources/ui/window.blp:45
+msgid "No Recent Files"
+msgstr "Aucun fichier récent"
+
+#: data/resources/ui/window.blp:68
 msgid "Main Menu"
 msgstr "Menu principal"
 
-#: data/resources/ui/window.blp:35
+#: data/resources/ui/window.blp:76
 msgid "Search"
 msgstr "Rechercher"
 
-#: data/resources/ui/window.blp:52
+#: data/resources/ui/window.blp:92
 msgid "Search in document"
 msgstr "Rechercher dans le document"
 
-#: data/resources/ui/window.blp:64
+#: data/resources/ui/window.blp:104
 msgid "Previous Match"
 msgstr "Résultat précédent"
 
-#: data/resources/ui/window.blp:70
+#: data/resources/ui/window.blp:110
 msgid "Next Match"
 msgstr "Résultat suivant"
 
-#: data/resources/ui/window.blp:76
+#: data/resources/ui/window.blp:116
 msgid "Search Options"
 msgstr "Options de recherche"
 
-#: data/resources/ui/window.blp:91
+#: data/resources/ui/window.blp:131
 msgid "Open a Markdown File"
 msgstr "Ouvrir un fichier Markdown"
 
-#: data/resources/ui/window.blp:92
+#: data/resources/ui/window.blp:132
 msgid "Choose a document to read"
 msgstr "Choisissez un document à lire"
 
-#: data/resources/ui/window.blp:95
+#: data/resources/ui/window.blp:139
 msgid "_Open…"
 msgstr "_Ouvrir…"
 
-#: data/resources/ui/window.blp:125
+#: data/resources/ui/window.blp:196
 msgid "Match _Case"
 msgstr "Respecter la _casse"
 
-#: data/resources/ui/window.blp:130
+#: data/resources/ui/window.blp:201
 msgid "Match _Whole Words"
 msgstr "_Mots entiers"
 
-#: data/resources/ui/window.blp:139
+#: data/resources/ui/window.blp:210
 msgid "_New Window"
 msgstr "_Nouvelle fenêtre"
 
-#: data/resources/ui/window.blp:146
+#: data/resources/ui/window.blp:217
 msgid "_About Lectern"
 msgstr "À _propos de Lectern"
 
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-#: src/application.rs:112
+#: src/application.rs:117
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
@@ -130,22 +138,22 @@ msgstr "Skunkcrafts"
 msgid "Copy"
 msgstr "Copier"
 
-#: src/window.rs:155
+#: src/window.rs:188
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:334
+#: src/window.rs:447
 msgid "{current} of {count}"
 msgstr "{current} sur {count}"
 
-#: src/window.rs:337
+#: src/window.rs:450
 msgid "No results"
 msgstr "Aucun résultat"
 
-#: src/window.rs:389
+#: src/window.rs:502
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:398
+#: src/window.rs:511
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"

@@ -34,7 +34,12 @@ mod imp {
 			let app = self.obj();
 			match app.active_window() {
 				Some(window) => window.present(),
-				None => LecternWindow::new(&app).present(),
+				None => {
+					let window = LecternWindow::new(&app);
+					window.present();
+					#[cfg(debug_assertions)]
+					crate::devtools::snapshot_if_requested(&window);
+				}
 			}
 		}
 

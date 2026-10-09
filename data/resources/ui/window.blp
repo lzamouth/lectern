@@ -11,10 +11,50 @@ template $LecternWindow: Adw.ApplicationWindow {
 			[top]
 			Adw.HeaderBar {
 				[start]
-				Gtk.Button {
+				Adw.SplitButton {
 					icon-name: "document-open-symbolic";
 					tooltip-text: _("Open…");
+					dropdown-tooltip: _("Recent Files");
 					action-name: "win.open";
+
+					popover: Gtk.Popover recent_popover {
+						child: Gtk.Stack recent_stack {
+							Gtk.StackPage {
+								name: "list";
+
+								child: Gtk.ScrolledWindow {
+									hscrollbar-policy: never;
+									max-content-height: 400;
+									propagate-natural-height: true;
+									propagate-natural-width: true;
+
+									child: Gtk.ListBox recent_list {
+										selection-mode: none;
+
+										styles [
+											"navigation-sidebar",
+										]
+									};
+								};
+							}
+
+							Gtk.StackPage {
+								name: "empty";
+
+								child: Gtk.Label {
+									label: _("No Recent Files");
+									margin-top: 12;
+									margin-bottom: 12;
+									margin-start: 12;
+									margin-end: 12;
+
+									styles [
+										"dimmed",
+									]
+								};
+							}
+						};
+					};
 				}
 
 				title-widget: Adw.WindowTitle window_title {
@@ -31,6 +71,7 @@ template $LecternWindow: Adw.ApplicationWindow {
 
 				[end]
 				Gtk.ToggleButton search_button {
+					visible: false;
 					icon-name: "edit-find-symbolic";
 					tooltip-text: _("Search");
 					active: bind search_bar.search-mode-enabled bidirectional;
@@ -39,7 +80,6 @@ template $LecternWindow: Adw.ApplicationWindow {
 
 			[top]
 			Gtk.SearchBar search_bar {
-				key-capture-widget: template;
 
 				child: Adw.Clamp {
 					maximum-size: 600;
@@ -91,16 +131,47 @@ template $LecternWindow: Adw.ApplicationWindow {
 						title: _("Open a Markdown File");
 						description: _("Choose a document to read");
 
-						child: Gtk.Button {
-							label: _("_Open…");
-							use-underline: true;
-							halign: center;
-							action-name: "win.open";
+						child: Gtk.Box {
+							orientation: vertical;
+							spacing: 36;
 
-							styles [
-								"pill",
-								"suggested-action",
-							]
+							Gtk.Button {
+								label: _("_Open…");
+								use-underline: true;
+								halign: center;
+								action-name: "win.open";
+
+								styles [
+									"pill",
+									"suggested-action",
+								]
+							}
+
+							Adw.Clamp empty_recent_clamp {
+								maximum-size: 500;
+
+								child: Gtk.Box {
+									orientation: vertical;
+									spacing: 12;
+
+									Gtk.Label {
+										label: _("Recent Files");
+										xalign: 0;
+
+										styles [
+											"heading",
+										]
+									}
+
+									Gtk.ListBox empty_recent_list {
+										selection-mode: none;
+
+										styles [
+											"boxed-list",
+										]
+									}
+								};
+							}
 						};
 					};
 				}
