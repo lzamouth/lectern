@@ -99,6 +99,25 @@ A wide table scrolls horizontally when its columns cannot shrink further:
 | `font` | string | system | Font used for proportional text. When unset, the document font of the desktop is used. |
 | `monospace-font` | string | system | Font used for code. When unset, the monospace font of the desktop is used instead. |
 
+## Images
+
+A wide image is scaled down to the width of the window:
+
+![A stylized landscape](images/landscape.png "Landscape")
+
+Small images flow with the text, like this icon
+![Lectern icon](../data/icons/hicolor/scalable/apps/com.skunkcrafts.Lectern.svg)
+inside a sentence. HTML images can set their size, and can be links:
+
+<p align="center">
+  <a href="https://github.com/lzamouth/lectern"><img src="../data/icons/hicolor/scalable/apps/com.skunkcrafts.Lectern.svg" width="64" alt="Lectern"></a>
+  <img src="images/landscape.png" height="64" alt="Landscape">
+</p>
+
+A missing image shows its alternative text: ![Missing picture](images/missing.png)
+
+Remote images are not loaded: ![Remote badge](https://example.org/badge.svg)
+
 ## Code
 
 Fenced code blocks are highlighted according to their language:

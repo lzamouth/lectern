@@ -93,14 +93,16 @@ pub struct Style {
 	pub code: bool,
 }
 
-/// A run of text sharing the same style and link target.
+/// A run of text sharing the same style and link target, or an image.
 ///
 /// A `'\n'` in `text` is a hard line break inside the block.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span {
+	/// The text, or the alternative text of an image.
 	pub text: String,
 	pub style: Style,
 	pub link: Option<String>,
+	pub image: Option<Image>,
 }
 
 impl Span {
@@ -109,8 +111,19 @@ impl Span {
 			text: text.to_owned(),
 			style: Style::default(),
 			link: None,
+			image: None,
 		}
 	}
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Image {
+	/// URL or path, possibly relative to the document.
+	pub url: String,
+	pub title: String,
+	/// Size requested by HTML attributes, in pixels.
+	pub width: Option<i32>,
+	pub height: Option<i32>,
 }
 
 /// Concatenated text of spans.

@@ -7,10 +7,11 @@ use std::sync::OnceLock;
 use adw::prelude::*;
 use gtk::glib::subclass::Signal;
 use gtk::subclass::prelude::*;
-use gtk::{gdk, glib, graphene, pango};
+use gtk::{gdk, gio, glib, graphene, pango};
 
-use super::{CodeBlock, Table};
+use super::{CodeBlock, Image, Table};
 use crate::document::{Block, Document, List, ListKind, Span};
+use crate::uri;
 
 const HEADING_SCALES: [f64; 6] = [2.0, 1.6, 1.35, 1.17, 1.0, 0.9];
 const HEADING_TAGS: [&str; 6] = ["h1", "h2", "h3", "h4", "h5", "h6"];
@@ -113,6 +114,19 @@ mod imp {
 	}
 
 	impl WidgetImpl for MarkdownView {
+		fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+			let (minimum, natural, minimum_baseline, natural_baseline) =
+				self.parent_measure(orientation, for_size);
+			if orientation == gtk::Orientation::Vertical {
+				return (minimum, natural, minimum_baseline, natural_baseline);
+			}
+			// Embedded widgets are resized to the width of the view after each
+			// allocation: they must not prevent the view from shrinking.
+			let obj = self.obj();
+			let minimum = minimum.min(obj.left_margin() + obj.right_margin() + 1);
+			(minimum, natural.max(minimum), -1, -1)
+		}
+
 		fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
 			self.parent_size_allocate(width, height, baseline);
 			if width != self.embedded_width.get() {
@@ -154,11 +168,13 @@ glib::wrapper! {
 }
 
 impl MarkdownView {
-	pub fn set_document(&self, document: &Document) {
+	/// Shows `document`. Relative paths are resolved against `base_dir`.
+	pub fn set_document(&self, document: &Document, base_dir: Option<&gio::File>) {
 		let buffer = self.buffer();
 		buffer.set_text("");
 		let mut renderer = Renderer {
 			view: self,
+			base_dir,
 			buffer: &buffer,
 			links: Vec::new(),
 			anchors: HashMap::new(),
@@ -181,13 +197,30 @@ impl MarkdownView {
 	}
 
 	/// Creates a view showing a single paragraph, for a table cell.
-	pub fn new_cell(content: &[Span], justification: gtk::Justification) -> Self {
+	pub fn new_cell(
+		content: &[Span],
+		justification: gtk::Justification,
+		base_dir: Option<&gio::File>,
+	) -> Self {
 		let view: Self = glib::Object::new();
 		view.set_justification(justification);
-		view.set_document(&Document {
-			blocks: vec![Block::Paragraph(content.to_vec())],
-		});
+		view.set_document(
+			&Document {
+				blocks: vec![Block::Paragraph(content.to_vec())],
+			},
+			base_dir,
+		);
 		view
+	}
+
+	/// A callback emitting `link-activated` on this view, for embedded widgets.
+	fn link_callback(&self) -> impl Fn(&str) + Clone + 'static {
+		let view = self.downgrade();
+		move |url| {
+			if let Some(view) = view.upgrade() {
+				view.emit_by_name::<()>("link-activated", &[&url]);
+			}
+		}
 	}
 
 	/// Sets the horizontal and vertical margins around the text.
@@ -366,7 +399,10 @@ impl MarkdownView {
 		}
 		for embedded in self.imp().embedded.borrow().iter() {
 			let width = (text_width - embedded.indent).max(1);
-			if embedded.widget.width_request() != width {
+			// Images keep their own size, within the available width.
+			if let Some(image) = embedded.widget.downcast_ref::<Image>() {
+				image.fit(width);
+			} else if embedded.widget.width_request() != width {
 				embedded.widget.set_size_request(width, -1);
 				if let Some(table) = embedded.widget.downcast_ref::<Table>() {
 					table.fit(width);
@@ -501,6 +537,7 @@ impl Default for Context {
 
 struct Renderer<'a> {
 	view: &'a MarkdownView,
+	base_dir: Option<&'a gio::File>,
 	buffer: &'a gtk::TextBuffer,
 	links: Vec<Link>,
 	anchors: HashMap<String, gtk::TextMark>,
@@ -526,28 +563,23 @@ impl Renderer<'_> {
 				let mark = self.buffer.create_mark(None, &self.buffer.end_iter(), true);
 				self.anchors.insert(anchor.clone(), mark);
 				let tag = HEADING_TAGS[usize::from(level.clamp(&1, &6) - 1)];
-				self.spans(content, &[tag]);
+				self.spans(content, &[tag], context.indent);
 				self.end_line();
 				// Headings have their own spacing.
 				self.indent(start, context.indent);
 			}
 			Block::Paragraph(content) => {
-				self.spans(content, &[]);
+				self.spans(content, &[], context.indent);
 				self.end_leaf_block(start, context);
 			}
 			Block::Code { info, text } => {
 				let widget = CodeBlock::new(text, info);
-				self.embed(widget.upcast(), text.clone(), context);
+				self.embed(widget.upcast(), text.clone(), context.indent);
 				self.end_leaf_block(start, context);
 			}
 			Block::Table(table) => {
-				let view = self.view.downgrade();
-				let widget = Table::new(table, move |url| {
-					if let Some(view) = view.upgrade() {
-						view.emit_by_name::<()>("link-activated", &[&url]);
-					}
-				});
-				self.embed(widget.upcast(), table.to_tsv(), context);
+				let widget = Table::new(table, self.base_dir, self.view.link_callback());
+				self.embed(widget.upcast(), table.to_tsv(), context.indent);
 				self.end_leaf_block(start, context);
 			}
 			Block::Quote(blocks) => {
@@ -638,22 +670,37 @@ impl Renderer<'_> {
 	}
 
 	/// Embeds a widget at the end of the buffer.
-	fn embed(&mut self, widget: gtk::Widget, text: String, context: Context) {
+	fn embed(&mut self, widget: gtk::Widget, text: String, indent: i32) {
 		let offset = self.offset();
 		let anchor = self.buffer.create_child_anchor(&mut self.buffer.end_iter());
 		self.view.add_child_at_anchor(&widget, &anchor);
 		self.embedded.push(Embedded {
 			offset,
-			indent: context.indent,
+			indent,
 			widget,
 			text,
 		});
 	}
 
-	fn spans(&mut self, spans: &[Span], block_tags: &[&str]) {
+	fn spans(&mut self, spans: &[Span], block_tags: &[&str], indent: i32) {
 		for span in spans {
 			let mut tags = block_tags.to_vec();
 			let style = span.style;
+			if let Some(image) = &span.image {
+				if let Some(file) = uri::local_file(&image.url, self.base_dir) {
+					let widget = Image::new(
+						&file,
+						image,
+						&span.text,
+						span.link.as_deref(),
+						self.view.link_callback(),
+					);
+					self.embed(widget.upcast(), span.text.clone(), indent);
+					continue;
+				}
+				// Remote images are not loaded: show the alternative text.
+				tags.push("emphasis");
+			}
 			if style.strong {
 				tags.push("strong");
 			}

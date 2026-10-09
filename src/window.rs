@@ -8,6 +8,7 @@ use gtk::{gio, glib};
 use crate::application::LecternApplication;
 use crate::config;
 use crate::document;
+use crate::uri;
 use crate::widgets::MarkdownView;
 
 const MARKDOWN_EXTENSIONS: [&str; 5] = ["md", "markdown", "mdown", "mkd", "mkdn"];
@@ -108,7 +109,8 @@ impl LecternWindow {
 		match file.load_contents_future().await {
 			Ok((bytes, _etag)) => {
 				let text = String::from_utf8_lossy(&bytes);
-				imp.markdown_view.set_document(&document::parse(&text));
+				imp.markdown_view
+					.set_document(&document::parse(&text), file.parent().as_ref());
 				self.update_title(&file);
 				imp.file.replace(Some(file));
 				imp.stack.set_visible_child_name("document");
@@ -130,22 +132,13 @@ impl LecternWindow {
 			return;
 		}
 
-		let target = match glib::Uri::peek_scheme(url) {
-			Some(scheme) if scheme != "file" => {
-				self.launch(gtk::UriLauncher::new(url).launch_future(Some(self)));
-				return;
-			}
-			Some(_) => gio::File::for_uri(url),
-			None => {
-				// Relative path, possibly followed by a fragment.
-				let path = url.split_once('#').map_or(url, |(path, _)| path);
-				let path = glib::Uri::unescape_string(path, None::<&str>)
-					.map_or_else(|| path.to_owned(), |path| path.to_string());
-				let Some(dir) = self.file().and_then(|file| file.parent()) else {
-					return;
-				};
-				dir.resolve_relative_path(path)
-			}
+		if glib::Uri::peek_scheme(url).is_some_and(|scheme| scheme != "file") {
+			self.launch(gtk::UriLauncher::new(url).launch_future(Some(self)));
+			return;
+		}
+		let base_dir = self.file().and_then(|file| file.parent());
+		let Some(target) = uri::local_file(url, base_dir.as_ref()) else {
+			return;
 		};
 
 		if is_markdown(&target) {

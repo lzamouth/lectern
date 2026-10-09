@@ -2,7 +2,8 @@ use comrak::nodes::{AstNode, ListDelimType, ListType, NodeValue, TableAlignment}
 use comrak::{Anchorizer, Arena, Options};
 
 use super::{
-	Alignment, Block, Document, List, ListItem, ListKind, Span, Style, Table, html, plain_text,
+	Alignment, Block, Document, Image, List, ListItem, ListKind, Span, Style, Table, html,
+	plain_text,
 };
 
 pub fn parse(markdown: &str) -> Document {
@@ -62,9 +63,24 @@ impl Builder {
 				});
 			}
 			NodeValue::HtmlBlock(block) => {
-				let lines = html::text_lines(&block.literal);
-				if !lines.is_empty() {
-					blocks.push(Block::Paragraph(vec![Span::plain(&lines.join("\n"))]));
+				let mut content = Vec::new();
+				for (index, line) in html::lines(&block.literal).into_iter().enumerate() {
+					if index > 0 {
+						push_text(&mut content, "\n", Style::default(), None);
+					}
+					for inline in line {
+						match inline {
+							html::Inline::Text(text) => {
+								push_text(&mut content, &text, Style::default(), None);
+							}
+							html::Inline::Image(image) => {
+								content.push(html_image_span(image, Style::default(), None));
+							}
+						}
+					}
+				}
+				if !content.is_empty() {
+					blocks.push(Block::Paragraph(content));
 				}
 			}
 			NodeValue::ThematicBreak => blocks.push(Block::ThematicBreak),
@@ -190,17 +206,26 @@ fn collect_inlines<'a>(
 				collect_inlines(child, style, link, spans);
 			}
 			NodeValue::Link(target) => collect_inlines(child, style, Some(&target.url), spans),
-			// Provisional rendering until images are supported: show the alternative text.
-			NodeValue::Image(_) => {
-				let style = Style {
-					emphasis: true,
-					..style
-				};
-				collect_inlines(child, style, link, spans);
+			NodeValue::Image(image) => {
+				let mut alt = Vec::new();
+				collect_inlines(child, Style::default(), None, &mut alt);
+				spans.push(Span {
+					text: plain_text(&alt),
+					style,
+					link: link.map(str::to_owned),
+					image: Some(Image {
+						url: image.url.clone(),
+						title: image.title.clone(),
+						width: None,
+						height: None,
+					}),
+				});
 			}
-			NodeValue::HtmlInline(html) => {
-				if is_html_line_break(html) {
+			NodeValue::HtmlInline(tag) => {
+				if is_html_line_break(tag) {
 					push_text(spans, "\n", style, link);
+				} else if let Some(image) = html::image(tag) {
+					spans.push(html_image_span(image, style, link));
 				}
 			}
 			_ => collect_inlines(child, style, link, spans),
@@ -208,8 +233,23 @@ fn collect_inlines<'a>(
 	}
 }
 
+fn html_image_span(image: html::HtmlImage, style: Style, link: Option<&str>) -> Span {
+	Span {
+		text: image.alt,
+		style,
+		link: link.map(str::to_owned),
+		image: Some(Image {
+			url: image.src,
+			title: image.title,
+			width: image.width,
+			height: image.height,
+		}),
+	}
+}
+
 fn push_text(spans: &mut Vec<Span>, text: &str, style: Style, link: Option<&str>) {
 	if let Some(last) = spans.last_mut()
+		&& last.image.is_none()
 		&& last.style == style
 		&& last.link.as_deref() == link
 	{
@@ -220,6 +260,7 @@ fn push_text(spans: &mut Vec<Span>, text: &str, style: Style, link: Option<&str>
 		text: text.to_owned(),
 		style,
 		link: link.map(str::to_owned),
+		image: None,
 	});
 }
 
@@ -357,13 +398,44 @@ mod tests {
 	}
 
 	#[test]
-	fn html_keeps_text_only() {
+	fn html_keeps_text_and_images() {
 		let document = parse(
-			"<div align=\"center\">\n<img src=\"a.png\">\n</div>\n\nPress <kbd>Ctrl</kbd>.\n",
+			"<div align=\"center\">\n<img src=\"a.png\" width=\"64\">\n</div>\n\nPress <kbd>Ctrl</kbd>.\n",
 		);
+		let image = Span {
+			text: String::new(),
+			style: Style::default(),
+			link: None,
+			image: Some(Image {
+				url: "a.png".to_owned(),
+				width: Some(64),
+				..Image::default()
+			}),
+		};
 		assert_eq!(
 			document.blocks,
-			[Block::Paragraph(vec![Span::plain("Press Ctrl.")])]
+			[
+				Block::Paragraph(vec![image]),
+				Block::Paragraph(vec![Span::plain("Press Ctrl.")])
+			]
+		);
+	}
+
+	#[test]
+	fn images_keep_alt_text_and_link() {
+		let spans = spans("[![*Logo*](logo.png \"Title\")](https://example.org)");
+		assert_eq!(
+			spans,
+			[Span {
+				text: "Logo".to_owned(),
+				style: Style::default(),
+				link: Some("https://example.org".to_owned()),
+				image: Some(Image {
+					url: "logo.png".to_owned(),
+					title: "Title".to_owned(),
+					..Image::default()
+				}),
+			}]
 		);
 	}
 
@@ -378,6 +450,7 @@ mod tests {
 				..Style::default()
 			},
 			link: None,
+			image: None,
 		}];
 		let table = Table {
 			alignments: vec![Alignment::Left, Alignment::Right],

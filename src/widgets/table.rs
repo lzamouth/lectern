@@ -8,7 +8,7 @@ use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{gdk, glib, graphene, gsk, pango};
+use gtk::{gdk, gio, glib, graphene, gsk, pango};
 
 use super::MarkdownView;
 use crate::document::{self, Alignment, Span, Style};
@@ -141,13 +141,17 @@ glib::wrapper! {
 
 impl Table {
 	/// Creates the table. `link_activated` is called when a link in a cell is clicked.
-	pub fn new(table: &document::Table, link_activated: impl Fn(&str) + Clone + 'static) -> Self {
+	pub fn new(
+		table: &document::Table,
+		base_dir: Option<&gio::File>,
+		link_activated: impl Fn(&str) + Clone + 'static,
+	) -> Self {
 		let obj: Self = glib::Object::new();
 		obj.add_css_class("markdown-table");
 
 		let grid: TableGrid = glib::Object::new();
 		grid.set_halign(gtk::Align::Start);
-		grid.set_cells(table, link_activated);
+		grid.set_cells(table, base_dir, link_activated);
 
 		let scrolled = gtk::ScrolledWindow::builder()
 			.hscrollbar_policy(gtk::PolicyType::Automatic)
@@ -176,7 +180,12 @@ impl Table {
 }
 
 impl TableGrid {
-	fn set_cells(&self, table: &document::Table, link_activated: impl Fn(&str) + Clone + 'static) {
+	fn set_cells(
+		&self,
+		table: &document::Table,
+		base_dir: Option<&gio::File>,
+		link_activated: impl Fn(&str) + Clone + 'static,
+	) {
 		let column_count = table
 			.rows
 			.iter()
@@ -211,7 +220,7 @@ impl TableGrid {
 					content.clone()
 				};
 				let alignment = table.alignments.get(column).copied().unwrap_or_default();
-				let cell = MarkdownView::new_cell(&content, justification(alignment));
+				let cell = MarkdownView::new_cell(&content, justification(alignment), base_dir);
 				cell.set_margins(CELL_PADDING_X, CELL_PADDING_Y);
 				let callback = link_activated.clone();
 				cell.connect_link_activated(move |_, url| callback(url));

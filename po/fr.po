@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 17:54+0200\n"
+"POT-Creation-Date: 2026-10-09 21:37+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -94,14 +94,14 @@ msgstr "Skunkcrafts"
 msgid "Copy"
 msgstr "Copier"
 
-#: src/window.rs:119
+#: src/window.rs:121
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:175
+#: src/window.rs:168
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:184
+#: src/window.rs:177
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"
