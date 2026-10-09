@@ -29,6 +29,55 @@ like that one.
 
 ###### Sixth level heading
 
+## Lists
+
+- A bullet list item
+- An item with **nested** content:
+  1. First ordered item
+  2. Second ordered item
+     - Deeper bullet
+       - Even deeper bullet
+  3. Third item, which is long enough to wrap on several lines when the
+     window is narrow, so that the hanging indentation can be checked.
+- Last bullet item
+
+8. An ordered list
+9. starting at eight,
+10. with two-digit numbers.
+
+Task list:
+
+- [x] Write the skeleton
+- [x] Render basic Markdown
+- [ ] Render tables
+
+A loose list:
+
+* First paragraph item.
+
+* Second paragraph item, with a second paragraph:
+
+  Continuation paragraph of the second item.
+
+## Quotes
+
+> A block quote can contain *styled text*
+> on several lines.
+>
+> > And nested quotes,
+> > with a deeper bar.
+>
+> - Or even lists.
+
+## Raw HTML
+
+<div align="center">
+  <img src="logo.png" alt="Logo">
+  <p>Text inside an <b>HTML</b> block is kept, tags are hidden.</p>
+</div>
+
+Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy.<!-- a hidden comment -->
+
 ## Code
 
 ```rust

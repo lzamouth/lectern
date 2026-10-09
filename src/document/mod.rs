@@ -1,5 +1,6 @@
 //! Toolkit-independent model of a Markdown document, built from the comrak AST.
 
+mod html;
 mod parse;
 
 pub use parse::parse;
@@ -22,9 +23,30 @@ pub enum Block {
 		info: String,
 		text: String,
 	},
-	/// Raw HTML, which is not interpreted.
-	Html(String),
+	Quote(Vec<Block>),
+	List(List),
 	ThematicBreak,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct List {
+	pub kind: ListKind,
+	/// Tight lists have no blank lines between their items.
+	pub tight: bool,
+	pub items: Vec<ListItem>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListKind {
+	Bullet,
+	Ordered { start: usize, delimiter: char },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListItem {
+	/// `Some(checked)` for task list items.
+	pub task: Option<bool>,
+	pub blocks: Vec<Block>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

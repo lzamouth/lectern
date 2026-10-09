@@ -1,7 +1,7 @@
-use comrak::nodes::{AstNode, NodeValue};
+use comrak::nodes::{AstNode, ListDelimType, ListType, NodeValue};
 use comrak::{Anchorizer, Arena, Options};
 
-use super::{Block, Document, Span, Style, plain_text};
+use super::{Block, Document, List, ListItem, ListKind, Span, Style, html, plain_text};
 
 pub fn parse(markdown: &str) -> Document {
 	let mut options = Options::default();
@@ -15,38 +15,38 @@ pub fn parse(markdown: &str) -> Document {
 	let root = comrak::parse_document(&arena, markdown, &options);
 
 	let mut builder = Builder::default();
-	builder.blocks(root);
 	Document {
-		blocks: builder.blocks,
+		blocks: builder.blocks(root),
 	}
 }
 
 #[derive(Default)]
 struct Builder {
-	blocks: Vec<Block>,
 	anchorizer: Anchorizer,
 }
 
 impl Builder {
-	fn blocks<'a>(&mut self, node: &'a AstNode<'a>) {
+	fn blocks<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<Block> {
+		let mut blocks = Vec::new();
 		for child in node.children() {
-			self.block(child);
+			self.block(child, &mut blocks);
 		}
+		blocks
 	}
 
-	fn block<'a>(&mut self, node: &'a AstNode<'a>) {
+	fn block<'a>(&mut self, node: &'a AstNode<'a>, blocks: &mut Vec<Block>) {
 		match &node.data.borrow().value {
 			NodeValue::FrontMatter(_) => {}
 			NodeValue::Paragraph => {
 				let content = inlines(node);
 				if !content.is_empty() {
-					self.blocks.push(Block::Paragraph(content));
+					blocks.push(Block::Paragraph(content));
 				}
 			}
 			NodeValue::Heading(heading) => {
 				let content = inlines(node);
 				let anchor = self.anchorizer.anchorize(&plain_text(&content));
-				self.blocks.push(Block::Heading {
+				blocks.push(Block::Heading {
 					level: heading.level,
 					anchor,
 					content,
@@ -54,27 +54,48 @@ impl Builder {
 			}
 			NodeValue::CodeBlock(code) => {
 				let text = code.literal.strip_suffix('\n').unwrap_or(&code.literal);
-				self.blocks.push(Block::Code {
+				blocks.push(Block::Code {
 					info: code.info.clone(),
 					text: text.to_owned(),
 				});
 			}
-			NodeValue::HtmlBlock(html) => {
-				let text = html.literal.trim_end();
-				if !text.is_empty() {
-					self.blocks.push(Block::Html(text.to_owned()));
+			NodeValue::HtmlBlock(block) => {
+				let lines = html::text_lines(&block.literal);
+				if !lines.is_empty() {
+					blocks.push(Block::Paragraph(vec![Span::plain(&lines.join("\n"))]));
 				}
 			}
-			NodeValue::ThematicBreak => self.blocks.push(Block::ThematicBreak),
-			// Provisional rendering until lists get their own blocks.
-			NodeValue::Item(_) => self.prefixed_item(node, "•\u{a0}"),
-			NodeValue::TaskItem(task) => {
-				let marker = if task.symbol.is_some() {
-					"☑\u{a0}"
-				} else {
-					"☐\u{a0}"
+			NodeValue::ThematicBreak => blocks.push(Block::ThematicBreak),
+			NodeValue::BlockQuote => blocks.push(Block::Quote(self.blocks(node))),
+			NodeValue::List(list) => {
+				let kind = match list.list_type {
+					ListType::Bullet => ListKind::Bullet,
+					ListType::Ordered => ListKind::Ordered {
+						start: list.start,
+						delimiter: match list.delimiter {
+							ListDelimType::Period => '.',
+							ListDelimType::Paren => ')',
+						},
+					},
 				};
-				self.prefixed_item(node, marker);
+				let items = node
+					.children()
+					.map(|item| {
+						let task = match &item.data.borrow().value {
+							NodeValue::TaskItem(task) => Some(task.symbol.is_some()),
+							_ => None,
+						};
+						ListItem {
+							task,
+							blocks: self.blocks(item),
+						}
+					})
+					.collect();
+				blocks.push(Block::List(List {
+					kind,
+					tight: list.tight,
+					items,
+				}));
 			}
 			// Provisional rendering until tables get their own widget.
 			NodeValue::TableRow(header) => {
@@ -89,20 +110,13 @@ impl Builder {
 					};
 					collect_inlines(cell, style, None, &mut content);
 				}
-				self.blocks.push(Block::Paragraph(content));
+				blocks.push(Block::Paragraph(content));
 			}
-			_ => self.blocks(node),
-		}
-	}
-
-	fn prefixed_item<'a>(&mut self, node: &'a AstNode<'a>, marker: &str) {
-		let first = self.blocks.len();
-		self.blocks(node);
-		match self.blocks.get_mut(first) {
-			Some(Block::Paragraph(content)) => content.insert(0, Span::plain(marker)),
-			_ => self
-				.blocks
-				.insert(first, Block::Paragraph(vec![Span::plain(marker)])),
+			_ => {
+				for child in node.children() {
+					self.block(child, blocks);
+				}
+			}
 		}
 	}
 }
@@ -292,6 +306,50 @@ mod tests {
 		assert_eq!(
 			document.blocks,
 			[Block::Paragraph(vec![Span::plain("text")])]
+		);
+	}
+
+	#[test]
+	fn nested_lists() {
+		let document = parse("3. a\n   - [x] b\n   - [ ] c\n\n> - d\n");
+		let item = |task, blocks| ListItem { task, blocks };
+		let paragraph = |text| Block::Paragraph(vec![Span::plain(text)]);
+		let tasks = Block::List(List {
+			kind: ListKind::Bullet,
+			tight: true,
+			items: vec![
+				item(Some(true), vec![paragraph("b")]),
+				item(Some(false), vec![paragraph("c")]),
+			],
+		});
+		assert_eq!(
+			document.blocks,
+			[
+				Block::List(List {
+					kind: ListKind::Ordered {
+						start: 3,
+						delimiter: '.',
+					},
+					tight: true,
+					items: vec![item(None, vec![paragraph("a"), tasks])],
+				}),
+				Block::Quote(vec![Block::List(List {
+					kind: ListKind::Bullet,
+					tight: true,
+					items: vec![item(None, vec![paragraph("d")])],
+				})]),
+			]
+		);
+	}
+
+	#[test]
+	fn html_keeps_text_only() {
+		let document = parse(
+			"<div align=\"center\">\n<img src=\"a.png\">\n</div>\n\nPress <kbd>Ctrl</kbd>.\n",
+		);
+		assert_eq!(
+			document.blocks,
+			[Block::Paragraph(vec![Span::plain("Press Ctrl.")])]
 		);
 	}
 
