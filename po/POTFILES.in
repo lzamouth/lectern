@@ -6,4 +6,5 @@ data/resources/ui/window.blp
 src/application.rs
 src/preferences_dialog.rs
 src/widgets/code_block.rs
+src/widgets/markdown_view.rs
 src/window.rs

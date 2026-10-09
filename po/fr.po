@@ -223,6 +223,26 @@ msgstr "Skunkcrafts"
 msgid "Copy"
 msgstr "Copier"
 
+#: src/widgets/markdown_view.rs:845
+msgid "Note"
+msgstr "Remarque"
+
+#: src/widgets/markdown_view.rs:846
+msgid "Tip"
+msgstr "Astuce"
+
+#: src/widgets/markdown_view.rs:847
+msgid "Important"
+msgstr "Important"
+
+#: src/widgets/markdown_view.rs:848
+msgid "Warning"
+msgstr "Avertissement"
+
+#: src/widgets/markdown_view.rs:849
+msgid "Caution"
+msgstr "Attention"
+
 #: src/window.rs:201
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
