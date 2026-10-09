@@ -1,0 +1,6 @@
+data/com.skunkcrafts.Lectern.desktop.in
+data/com.skunkcrafts.Lectern.gschema.xml
+data/com.skunkcrafts.Lectern.metainfo.xml.in
+data/resources/ui/window.blp
+src/application.rs
+src/window.rs

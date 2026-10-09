@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Skunkcrafts -->
+<component type="desktop-application">
+	<id>com.skunkcrafts.Lectern</id>
+	<metadata_license>CC0-1.0</metadata_license>
+	<project_license>MIT</project_license>
+	<name>Lectern</name>
+	<summary>Read Markdown documents</summary>
+	<description>
+		<p>
+			Lectern is a native Markdown reader for GNOME. It renders CommonMark and
+			GitHub Flavored Markdown documents with GTK widgets, without a web engine.
+		</p>
+	</description>
+	<developer id="com.skunkcrafts">
+		<name translate="no">Skunkcrafts</name>
+	</developer>
+	<url type="homepage">https://github.com/lzamouth/lectern</url>
+	<url type="bugtracker">https://github.com/lzamouth/lectern/issues</url>
+	<url type="vcs-browser">https://github.com/lzamouth/lectern</url>
+	<launchable type="desktop-id">com.skunkcrafts.Lectern.desktop</launchable>
+	<content_rating type="oars-1.1"/>
+	<provides>
+		<binary>lectern</binary>
+		<mediatype>text/markdown</mediatype>
+	</provides>
+	<requires>
+		<display_length compare="ge">360</display_length>
+	</requires>
+	<supports>
+		<control>keyboard</control>
+		<control>pointing</control>
+		<control>touch</control>
+	</supports>
+	<translation type="gettext">lectern</translation>
+	<releases>
+		<release version="0.1.0" date="2026-10-09">
+			<description>
+				<p>Initial development version.</p>
+			</description>
+		</release>
+	</releases>
+</component>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+	<gresource prefix="/com/skunkcrafts/Lectern">
+		<file preprocess="xml-stripblanks">ui/window.ui</file>
+		<file preprocess="xml-stripblanks" alias="icons/scalable/apps/com.skunkcrafts.Lectern-symbolic.svg">hicolor/symbolic/apps/com.skunkcrafts.Lectern-symbolic.svg</file>
+	</gresource>
+</gresources>

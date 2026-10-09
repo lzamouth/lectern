@@ -1,0 +1,94 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $LecternWindow: Adw.ApplicationWindow {
+	title: "Lectern";
+	width-request: 360;
+	height-request: 294;
+
+	content: Adw.ToastOverlay toast_overlay {
+		child: Adw.ToolbarView {
+			[top]
+			Adw.HeaderBar {
+				[start]
+				Gtk.Button {
+					icon-name: "document-open-symbolic";
+					tooltip-text: _("Open…");
+					action-name: "win.open";
+				}
+
+				title-widget: Adw.WindowTitle window_title {
+					title: "Lectern";
+				};
+
+				[end]
+				Gtk.MenuButton {
+					primary: true;
+					icon-name: "open-menu-symbolic";
+					tooltip-text: _("Main Menu");
+					menu-model: primary_menu;
+				}
+			}
+
+			content: Gtk.Stack stack {
+				transition-type: crossfade;
+
+				Gtk.StackPage {
+					name: "empty";
+
+					child: Adw.StatusPage {
+						icon-name: "com.skunkcrafts.Lectern-symbolic";
+						title: _("Open a Markdown File");
+						description: _("Choose a document to read");
+
+						child: Gtk.Button {
+							label: _("_Open…");
+							use-underline: true;
+							halign: center;
+							action-name: "win.open";
+
+							styles [
+								"pill",
+								"suggested-action",
+							]
+						};
+					};
+				}
+
+				Gtk.StackPage {
+					name: "document";
+
+					child: Gtk.ScrolledWindow {
+						hscrollbar-policy: never;
+
+						child: Gtk.TextView text_view {
+							editable: false;
+							cursor-visible: false;
+							wrap-mode: word_char;
+							top-margin: 24;
+							bottom-margin: 24;
+							left-margin: 24;
+							right-margin: 24;
+						};
+					};
+				}
+			};
+		};
+	};
+}
+
+menu primary_menu {
+	section {
+		item {
+			label: _("_New Window");
+			action: "app.new-window";
+		}
+	}
+
+	section {
+		item {
+			label: _("_About Lectern");
+			action: "app.about";
+		}
+	}
+}

@@ -1,0 +1,19 @@
+[package]
+name = "lectern"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "A native Markdown reader for GNOME"
+publish = false
+
+[dependencies]
+adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
+gettext-rs = { version = "0.8", features = ["gettext-system"] }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
+
+[build-dependencies]
+glib-build-tools = "0.22"
+
+[profile.release]
+lto = true
+codegen-units = 1
