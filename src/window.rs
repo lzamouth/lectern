@@ -8,6 +8,7 @@ use gtk::{gio, glib};
 use crate::application::LecternApplication;
 use crate::config;
 use crate::document;
+use crate::search::SearchOptions;
 use crate::uri;
 use crate::widgets::MarkdownView;
 
@@ -27,6 +28,12 @@ mod imp {
 		pub stack: TemplateChild<gtk::Stack>,
 		#[template_child]
 		pub markdown_view: TemplateChild<MarkdownView>,
+		#[template_child]
+		pub search_bar: TemplateChild<gtk::SearchBar>,
+		#[template_child]
+		pub search_entry: TemplateChild<gtk::SearchEntry>,
+		#[template_child]
+		pub match_label: TemplateChild<gtk::Label>,
 		pub file: RefCell<Option<gio::File>>,
 		pub settings: OnceCell<gio::Settings>,
 	}
@@ -43,6 +50,18 @@ mod imp {
 			klass.install_action_async("win.open", None, |window, _, _| async move {
 				window.choose_file().await;
 			});
+			klass.install_action("win.find", None, |window, _, _| {
+				let imp = window.imp();
+				imp.search_bar.set_search_mode(true);
+				imp.search_entry.grab_focus();
+				imp.search_entry.select_region(0, -1);
+			});
+			klass.install_action("win.find-next", None, |window, _, _| {
+				window.select_next_match(false);
+			});
+			klass.install_action("win.find-previous", None, |window, _, _| {
+				window.select_next_match(true);
+			});
 		}
 
 		fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
@@ -55,6 +74,7 @@ mod imp {
 			self.parent_constructed();
 			let obj = self.obj();
 			obj.load_window_state();
+			obj.setup_search();
 			self.markdown_view.connect_link_activated(glib::clone!(
 				#[weak]
 				obj,
@@ -114,6 +134,12 @@ impl LecternWindow {
 				self.update_title(&file);
 				imp.file.replace(Some(file));
 				imp.stack.set_visible_child_name("document");
+				self.search();
+				#[cfg(debug_assertions)]
+				if let Ok(query) = std::env::var("LECTERN_SNAPSHOT_SEARCH") {
+					imp.search_bar.set_search_mode(true);
+					imp.search_entry.set_text(&query);
+				}
 				#[cfg(debug_assertions)]
 				crate::devtools::snapshot_if_requested(self);
 			}
@@ -124,6 +150,106 @@ impl LecternWindow {
 				self.show_toast(&message);
 			}
 		}
+	}
+
+	fn setup_search(&self) {
+		let imp = self.imp();
+		let settings = self.settings();
+		for key in ["search-case-sensitive", "search-whole-words"] {
+			self.add_action(&settings.create_action(key));
+			settings.connect_changed(
+				Some(key),
+				glib::clone!(
+					#[weak(rename_to = window)]
+					self,
+					move |_, _| window.search()
+				),
+			);
+		}
+
+		imp.search_entry.connect_search_changed(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_| window.search()
+		));
+		imp.search_entry.connect_activate(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_| window.select_next_match(false)
+		));
+		imp.search_entry.connect_next_match(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_| window.select_next_match(false)
+		));
+		imp.search_entry.connect_previous_match(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_| window.select_next_match(true)
+		));
+
+		// Shift+Enter selects the previous match.
+		let shortcuts = gtk::ShortcutController::new();
+		shortcuts.add_shortcut(gtk::Shortcut::new(
+			gtk::ShortcutTrigger::parse_string("<Shift>Return"),
+			Some(gtk::NamedAction::new("win.find-previous")),
+		));
+		imp.search_entry.add_controller(shortcuts);
+
+		imp.search_bar
+			.connect_search_mode_enabled_notify(glib::clone!(
+				#[weak(rename_to = window)]
+				self,
+				move |bar| {
+					if bar.is_search_mode() {
+						window.search();
+					} else {
+						window.imp().markdown_view.clear_search();
+						window.update_match_label();
+					}
+				}
+			));
+	}
+
+	/// Searches the text of the search entry in the document.
+	fn search(&self) {
+		let imp = self.imp();
+		if !imp.search_bar.is_search_mode() {
+			return;
+		}
+		let settings = self.settings();
+		let options = SearchOptions {
+			case_sensitive: settings.boolean("search-case-sensitive"),
+			whole_words: settings.boolean("search-whole-words"),
+		};
+		imp.markdown_view.search(&imp.search_entry.text(), options);
+		self.update_match_label();
+	}
+
+	fn select_next_match(&self, backward: bool) {
+		self.imp().markdown_view.select_next_match(backward);
+		self.update_match_label();
+	}
+
+	fn update_match_label(&self) {
+		let imp = self.imp();
+		let (current, count) = imp.markdown_view.match_position();
+		let searching = imp.search_bar.is_search_mode() && !imp.search_entry.text().is_empty();
+		let text = match current {
+			Some(index) if searching => gettext("{current} of {count}")
+				.replace("{current}", &(index + 1).to_string())
+				.replace("{count}", &count.to_string()),
+			None if searching => gettext("No results"),
+			_ => String::new(),
+		};
+		imp.match_label.set_label(&text);
+		if searching && count == 0 {
+			imp.search_entry.add_css_class("error");
+		} else {
+			imp.search_entry.remove_css_class("error");
+		}
+		self.action_set_enabled("win.find-next", count > 0);
+		self.action_set_enabled("win.find-previous", count > 0);
 	}
 
 	fn activate_link(&self, url: &str) {

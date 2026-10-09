@@ -31,7 +31,10 @@ install_data(
 )
 
 # Compiled into the build directory for `meson devenv`.
-gnome.compile_schemas(build_by_default: true)
+gnome.compile_schemas(
+	build_by_default: true,
+	depend_files: files(application_id + '.gschema.xml'),
+)
 
 test(
 	'validate-schema',

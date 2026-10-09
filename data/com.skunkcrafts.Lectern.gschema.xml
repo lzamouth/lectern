@@ -13,5 +13,13 @@
 			<default>false</default>
 			<summary>Whether the window is maximized</summary>
 		</key>
+		<key name="search-case-sensitive" type="b">
+			<default>false</default>
+			<summary>Whether search matches case</summary>
+		</key>
+		<key name="search-whole-words" type="b">
+			<default>false</default>
+			<summary>Whether search only matches whole words</summary>
+		</key>
 	</schema>
 </schemalist>

@@ -11,6 +11,7 @@ use gtk::{gdk, gio, glib, graphene, pango};
 
 use super::{CodeBlock, Image, Table};
 use crate::document::{Block, Document, List, ListKind, Span};
+use crate::search::{self, SearchOptions};
 use crate::uri;
 
 const HEADING_SCALES: [f64; 6] = [2.0, 1.6, 1.35, 1.17, 1.0, 0.9];
@@ -49,6 +50,23 @@ struct Embedded {
 	text: String,
 }
 
+/// A search match in the buffer of a text view, as character offsets.
+#[derive(Debug, Clone)]
+struct Match {
+	view: gtk::TextView,
+	start: i32,
+	end: i32,
+	/// Offset of the anchor of the embedded widget holding `view`, if any.
+	anchor: Option<i32>,
+}
+
+const MATCH_TAG: &str = "search-match";
+const CURRENT_MATCH_TAG: &str = "search-current-match";
+/// Maximum number of frames spent scrolling to a match in an embedded widget.
+const MAX_REVEAL_FRAMES: u32 = 60;
+/// Mark used to scroll to the selected match.
+const REVEAL_MARK: &str = "search-reveal";
+
 /// Graphics drawn below the text. Offsets are buffer character offsets.
 #[derive(Debug)]
 enum Decoration {
@@ -76,6 +94,8 @@ mod imp {
 		pub(super) anchors: RefCell<HashMap<String, gtk::TextMark>>,
 		pub(super) decorations: RefCell<Vec<Decoration>>,
 		pub(super) embedded: RefCell<Vec<Embedded>>,
+		pub(super) matches: RefCell<Vec<Match>>,
+		pub(super) current_match: Cell<Option<usize>>,
 		/// Width for which embedded widgets were last sized.
 		pub(super) embedded_width: Cell<i32>,
 		pub(super) style_handlers: RefCell<Vec<glib::SignalHandlerId>>,
@@ -171,6 +191,9 @@ impl MarkdownView {
 	/// Shows `document`. Relative paths are resolved against `base_dir`.
 	pub fn set_document(&self, document: &Document, base_dir: Option<&gio::File>) {
 		let buffer = self.buffer();
+		// The matches refer to the views being destroyed.
+		self.imp().matches.take();
+		self.imp().current_match.set(None);
 		buffer.set_text("");
 		let mut renderer = Renderer {
 			view: self,
@@ -229,6 +252,169 @@ impl MarkdownView {
 		self.set_right_margin(horizontal);
 		self.set_top_margin(vertical);
 		self.set_bottom_margin(vertical);
+	}
+
+	/// Highlights the occurrences of `query` in the document, including code
+	/// blocks and tables, and selects the first one. Returns their count.
+	pub fn search(&self, query: &str, options: SearchOptions) -> usize {
+		self.clear_search();
+
+		// Matches in embedded widgets are sorted at the offset of their anchor,
+		// after any match of the main text at the same offset.
+		let mut keyed: Vec<((i32, usize), Match)> = Vec::new();
+		let main_view: gtk::TextView = self.clone().upcast();
+		for found in find_in_view(&main_view, query, options, None) {
+			keyed.push(((found.start, 0), found));
+		}
+		for embedded in self.imp().embedded.borrow().iter() {
+			for (index, view) in embedded_text_views(&embedded.widget).iter().enumerate() {
+				for found in find_in_view(view, query, options, Some(embedded.offset)) {
+					keyed.push(((embedded.offset, index + 1), found));
+				}
+			}
+		}
+		keyed.sort_by_key(|(key, _)| *key);
+		let matches: Vec<Match> = keyed.into_iter().map(|(_, found)| found).collect();
+
+		for found in &matches {
+			let buffer = found.view.buffer();
+			ensure_search_tags(&buffer);
+			buffer.apply_tag_by_name(
+				MATCH_TAG,
+				&buffer.iter_at_offset(found.start),
+				&buffer.iter_at_offset(found.end),
+			);
+		}
+		let count = matches.len();
+		self.imp().matches.replace(matches);
+		if count > 0 {
+			self.select_match(0);
+		}
+		count
+	}
+
+	/// Removes the search highlighting.
+	pub fn clear_search(&self) {
+		let imp = self.imp();
+		imp.current_match.set(None);
+		let mut cleared: Vec<gtk::TextBuffer> = Vec::new();
+		for found in imp.matches.take() {
+			let buffer = found.view.buffer();
+			if cleared.contains(&buffer) {
+				continue;
+			}
+			let (start, end) = buffer.bounds();
+			buffer.remove_tag_by_name(MATCH_TAG, &start, &end);
+			buffer.remove_tag_by_name(CURRENT_MATCH_TAG, &start, &end);
+			cleared.push(buffer);
+		}
+	}
+
+	/// The index of the selected match, and the number of matches.
+	pub fn match_position(&self) -> (Option<usize>, usize) {
+		let imp = self.imp();
+		(imp.current_match.get(), imp.matches.borrow().len())
+	}
+
+	/// Selects the next match, or the previous one if `backward`, wrapping around.
+	pub fn select_next_match(&self, backward: bool) {
+		let (current, count) = self.match_position();
+		if count == 0 {
+			return;
+		}
+		let index = match (current, backward) {
+			(None, _) => 0,
+			(Some(index), false) => (index + 1) % count,
+			(Some(index), true) => (index + count - 1) % count,
+		};
+		self.select_match(index);
+	}
+
+	fn select_match(&self, index: usize) {
+		let imp = self.imp();
+		let matches = imp.matches.borrow();
+		if let Some(previous) = imp.current_match.get().and_then(|index| matches.get(index)) {
+			let buffer = previous.view.buffer();
+			buffer.remove_tag_by_name(
+				CURRENT_MATCH_TAG,
+				&buffer.iter_at_offset(previous.start),
+				&buffer.iter_at_offset(previous.end),
+			);
+		}
+		let Some(found) = matches.get(index) else {
+			return;
+		};
+		let buffer = found.view.buffer();
+		buffer.apply_tag_by_name(
+			CURRENT_MATCH_TAG,
+			&buffer.iter_at_offset(found.start),
+			&buffer.iter_at_offset(found.end),
+		);
+		imp.current_match.set(Some(index));
+		self.reveal(found);
+	}
+
+	/// Scrolls so that a match is visible, even inside an embedded widget.
+	fn reveal(&self, found: &Match) {
+		// Marks can be scrolled to before the layout is complete.
+		let buffer = self.buffer();
+		let offset = found.anchor.unwrap_or(found.start);
+		let mark = buffer
+			.mark(REVEAL_MARK)
+			.unwrap_or_else(|| buffer.create_mark(Some(REVEAL_MARK), &buffer.start_iter(), true));
+		buffer.move_mark(&mark, &buffer.iter_at_offset(offset));
+		self.scroll_to_mark(&mark, 0.2, false, 0.0, 0.0);
+
+		if found.anchor.is_some() {
+			// The layout is validated progressively, and the widget may be
+			// taller than the view: adjust the scrolling at each frame until the
+			// match is visible.
+			let found = found.clone();
+			let frames = Cell::new(0);
+			self.add_tick_callback(move |view, _| {
+				frames.set(frames.get() + 1);
+				if view.reveal_in_embedded(&found) || frames.get() > MAX_REVEAL_FRAMES {
+					glib::ControlFlow::Break
+				} else {
+					glib::ControlFlow::Continue
+				}
+			});
+		}
+	}
+
+	/// Scrolls towards a match inside an embedded widget. Returns whether it
+	/// is visible.
+	fn reveal_in_embedded(&self, found: &Match) -> bool {
+		let Some(adjustment) = self.vadjustment() else {
+			return true;
+		};
+		if !found.view.is_mapped() {
+			return false;
+		}
+		let mut start = found.view.buffer().iter_at_offset(found.start);
+		// Scroll inside the widget too (code blocks scroll horizontally).
+		found.view.scroll_to_iter(&mut start, 0.0, false, 0.0, 0.0);
+		let location = found.view.iter_location(&start);
+		let (x, y) = found.view.buffer_to_window_coords(
+			gtk::TextWindowType::Widget,
+			location.x(),
+			location.y(),
+		);
+		let Some(point) = found
+			.view
+			.compute_point(self, &graphene::Point::new(x as f32, y as f32))
+		else {
+			return false;
+		};
+		let page = adjustment.page_size();
+		let top = f64::from(point.y());
+		let bottom = top + f64::from(location.height());
+		if top >= 0.0 && bottom <= page {
+			return true;
+		}
+		let value = adjustment.value() + top - page * 0.2;
+		adjustment.set_value(value.clamp(adjustment.lower(), adjustment.upper() - page));
+		false
 	}
 
 	/// Scrolls to the heading with the given anchor. Returns whether it exists.
@@ -533,6 +719,65 @@ impl Default for Context {
 			bullet_depth: 0,
 		}
 	}
+}
+
+/// Finds the occurrences of `query` in the buffer of `view`.
+fn find_in_view(
+	view: &gtk::TextView,
+	query: &str,
+	options: SearchOptions,
+	anchor: Option<i32>,
+) -> Vec<Match> {
+	let buffer = view.buffer();
+	let (start, end) = buffer.bounds();
+	// The slice has one character per buffer offset, child anchors included.
+	let text: Vec<char> = buffer.slice(&start, &end, true).chars().collect();
+	search::find_all(&text, query, options)
+		.into_iter()
+		.map(|(start, end)| Match {
+			view: view.clone(),
+			start: start as i32,
+			end: end as i32,
+			anchor,
+		})
+		.collect()
+}
+
+/// The text views of an embedded widget, in reading order.
+fn embedded_text_views(widget: &gtk::Widget) -> Vec<gtk::TextView> {
+	if let Some(code_block) = widget.downcast_ref::<CodeBlock>() {
+		code_block.text_view().into_iter().collect()
+	} else if let Some(table) = widget.downcast_ref::<Table>() {
+		table
+			.cell_views()
+			.into_iter()
+			.map(|cell| cell.upcast())
+			.collect()
+	} else {
+		Vec::new()
+	}
+}
+
+/// Creates the search highlighting tags of a buffer if needed, with the
+/// highest priorities.
+fn ensure_search_tags(buffer: &gtk::TextBuffer) {
+	let table = buffer.tag_table();
+	if table.lookup(MATCH_TAG).is_some() {
+		return;
+	}
+	table.add(
+		&gtk::TextTag::builder()
+			.name(MATCH_TAG)
+			.background_rgba(&gdk::RGBA::new(0.96, 0.83, 0.18, 0.45))
+			.build(),
+	);
+	table.add(
+		&gtk::TextTag::builder()
+			.name(CURRENT_MATCH_TAG)
+			.background_rgba(&gdk::RGBA::new(1.0, 0.64, 0.28, 1.0))
+			.foreground_rgba(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.9))
+			.build(),
+	);
 }
 
 struct Renderer<'a> {

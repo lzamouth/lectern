@@ -3,6 +3,7 @@
 //! `LECTERN_SNAPSHOT=/path/to/file.png` saves a picture of the first window
 //! once a document is loaded, then quits the application.
 //! `LECTERN_SNAPSHOT_SIZE=WIDTHxHEIGHT` resizes the window before the picture.
+//! `LECTERN_SNAPSHOT_SEARCH=text` searches the text before the picture.
 
 use std::time::Duration;
 

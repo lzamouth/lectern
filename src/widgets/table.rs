@@ -171,6 +171,24 @@ impl Table {
 		self.imp().tsv.borrow().clone()
 	}
 
+	/// The views of the cells, row by row, for searching.
+	pub fn cell_views(&self) -> Vec<MarkdownView> {
+		self.imp()
+			.grid
+			.borrow()
+			.as_ref()
+			.map(|grid| {
+				grid.imp()
+					.cells
+					.borrow()
+					.iter()
+					.flatten()
+					.cloned()
+					.collect()
+			})
+			.unwrap_or_default()
+	}
+
 	/// Fits the columns in `width` pixels, unless the user resized them.
 	pub fn fit(&self, width: i32) {
 		if let Some(grid) = self.imp().grid.borrow().as_ref() {

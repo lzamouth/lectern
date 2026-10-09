@@ -28,6 +28,56 @@ template $LecternWindow: Adw.ApplicationWindow {
 					tooltip-text: _("Main Menu");
 					menu-model: primary_menu;
 				}
+
+				[end]
+				Gtk.ToggleButton search_button {
+					icon-name: "edit-find-symbolic";
+					tooltip-text: _("Search");
+					active: bind search_bar.search-mode-enabled bidirectional;
+				}
+			}
+
+			[top]
+			Gtk.SearchBar search_bar {
+				key-capture-widget: template;
+
+				child: Adw.Clamp {
+					maximum-size: 600;
+
+					child: Gtk.Box {
+						spacing: 6;
+
+						Gtk.SearchEntry search_entry {
+							hexpand: true;
+							placeholder-text: _("Search in document");
+						}
+
+						Gtk.Label match_label {
+							styles [
+								"dimmed",
+								"numeric",
+							]
+						}
+
+						Gtk.Button {
+							icon-name: "go-up-symbolic";
+							tooltip-text: _("Previous Match");
+							action-name: "win.find-previous";
+						}
+
+						Gtk.Button {
+							icon-name: "go-down-symbolic";
+							tooltip-text: _("Next Match");
+							action-name: "win.find-next";
+						}
+
+						Gtk.MenuButton {
+							icon-name: "view-more-symbolic";
+							tooltip-text: _("Search Options");
+							menu-model: search_menu;
+						}
+					};
+				};
 			}
 
 			content: Gtk.Stack stack {
@@ -67,6 +117,20 @@ template $LecternWindow: Adw.ApplicationWindow {
 			};
 		};
 	};
+}
+
+menu search_menu {
+	section {
+		item {
+			label: _("Match _Case");
+			action: "win.search-case-sensitive";
+		}
+
+		item {
+			label: _("Match _Whole Words");
+			action: "win.search-whole-words";
+		}
+	}
 }
 
 menu primary_menu {

@@ -92,6 +92,9 @@ impl LecternApplication {
 		self.set_accels_for_action("app.new-window", &["<Control>n"]);
 		self.set_accels_for_action("app.quit", &["<Control>q"]);
 		self.set_accels_for_action("win.open", &["<Control>o"]);
+		self.set_accels_for_action("win.find", &["<Control>f"]);
+		self.set_accels_for_action("win.find-next", &["<Control>g"]);
+		self.set_accels_for_action("win.find-previous", &["<Control><Shift>g"]);
 		self.set_accels_for_action("window.close", &["<Control>w"]);
 	}
 

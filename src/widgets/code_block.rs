@@ -28,6 +28,7 @@ mod imp {
 	#[derive(Debug, Default)]
 	pub struct CodeBlock {
 		pub(super) buffer: RefCell<Option<sourceview5::Buffer>>,
+		pub(super) view: RefCell<Option<sourceview5::View>>,
 		pub(super) copy_button: RefCell<Option<gtk::Button>>,
 		pub(super) dark_handler: RefCell<Option<glib::SignalHandlerId>>,
 	}
@@ -112,6 +113,7 @@ impl CodeBlock {
 
 		let imp = self.imp();
 		imp.buffer.replace(Some(buffer));
+		imp.view.replace(Some(view));
 		imp.copy_button.replace(Some(copy_button));
 
 		self.update_style_scheme();
@@ -134,6 +136,11 @@ impl CodeBlock {
 				buffer.text(&start, &end, true).to_string()
 			})
 			.unwrap_or_default()
+	}
+
+	/// The view showing the code, for searching.
+	pub fn text_view(&self) -> Option<gtk::TextView> {
+		self.imp().view.borrow().clone().map(|view| view.upcast())
 	}
 
 	fn copy(&self) {
