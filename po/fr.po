@@ -85,11 +85,19 @@ msgstr "Police à chasse fixe"
 msgid "Font of the code, when not using the fonts of the system."
 msgstr "Police du code, lorsque les polices du système ne sont pas utilisées."
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:48
+#: data/com.skunkcrafts.Lectern.gschema.xml:49
+msgid "Zoom"
+msgstr "Zoom"
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:50
+msgid "Scale factor of the text of documents."
+msgstr "Facteur d’agrandissement du texte des documents."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:54
 msgid "Whether search matches case"
 msgstr "Indique si la recherche respecte la casse"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:52
+#: data/com.skunkcrafts.Lectern.gschema.xml:58
 msgid "Whether search only matches whole words"
 msgstr "Indique si la recherche ne trouve que des mots entiers"
 
@@ -215,7 +223,7 @@ msgid "_About Lectern"
 msgstr "À _propos de Lectern"
 
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-#: src/application.rs:126
+#: src/application.rs:132
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
@@ -243,22 +251,22 @@ msgstr "Avertissement"
 msgid "Caution"
 msgstr "Attention"
 
-#: src/window.rs:201
+#: src/window.rs:205
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:501
+#: src/window.rs:523
 msgid "{current} of {count}"
 msgstr "{current} sur {count}"
 
-#: src/window.rs:504
+#: src/window.rs:526
 msgid "No results"
 msgstr "Aucun résultat"
 
-#: src/window.rs:556
+#: src/window.rs:578
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:565
+#: src/window.rs:587
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"

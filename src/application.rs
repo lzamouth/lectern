@@ -107,6 +107,12 @@ impl LecternApplication {
 		self.set_accels_for_action("app.preferences", &["<Control>comma"]);
 		self.set_accels_for_action("win.open", &["<Control>o"]);
 		self.set_accels_for_action("win.find", &["<Control>f"]);
+		self.set_accels_for_action(
+			"win.zoom-in",
+			&["<Control>plus", "<Control>equal", "<Control>KP_Add"],
+		);
+		self.set_accels_for_action("win.zoom-out", &["<Control>minus", "<Control>KP_Subtract"]);
+		self.set_accels_for_action("win.zoom-reset", &["<Control>0", "<Control>KP_0"]);
 		self.set_accels_for_action("win.find-next", &["<Control>g"]);
 		self.set_accels_for_action("win.find-previous", &["<Control><Shift>g"]);
 		self.set_accels_for_action("window.close", &["<Control>w"]);

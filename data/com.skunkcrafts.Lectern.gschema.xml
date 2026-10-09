@@ -43,6 +43,12 @@
 			<summary>Monospace font</summary>
 			<description>Font of the code, when not using the fonts of the system.</description>
 		</key>
+		<key name="zoom" type="d">
+			<range min="0.5" max="3.0"/>
+			<default>1.0</default>
+			<summary>Zoom</summary>
+			<description>Scale factor of the text of documents.</description>
+		</key>
 		<key name="search-case-sensitive" type="b">
 			<default>false</default>
 			<summary>Whether search matches case</summary>

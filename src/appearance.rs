@@ -7,12 +7,18 @@ use gtk::{gdk, gio, glib, pango};
 use crate::config;
 
 /// Keys of the settings affecting the rendering of documents.
-pub const RENDERING_KEYS: [&str; 4] = [
+pub const RENDERING_KEYS: [&str; 5] = [
 	"margin",
 	"use-system-fonts",
 	"document-font",
 	"monospace-font",
+	"zoom",
 ];
+
+/// Zoom limits, as in the settings schema.
+const MIN_ZOOM: f64 = 0.5;
+const MAX_ZOOM: f64 = 3.0;
+const ZOOM_STEP: f64 = 1.1;
 
 thread_local! {
 	static SETTINGS: gio::Settings = gio::Settings::new(config::APP_ID);
@@ -41,7 +47,12 @@ pub fn init() {
 		});
 	}
 	update_css();
-	for key in ["use-system-fonts", "document-font", "monospace-font"] {
+	for key in [
+		"use-system-fonts",
+		"document-font",
+		"monospace-font",
+		"zoom",
+	] {
 		settings.connect_changed(Some(key), |_, _| update_css());
 	}
 	style_manager.connect_document_font_name_notify(|_| update_css());
@@ -79,6 +90,24 @@ pub fn disconnect_rendering_changed(handlers: Vec<glib::SignalHandlerId>) {
 			style_manager.disconnect(handler);
 		}
 	}
+}
+
+/// Zooms in, or out if `zoom_in` is false.
+pub fn zoom(zoom_in: bool) {
+	let settings = settings();
+	let zoom = settings.double("zoom");
+	let zoom = if zoom_in {
+		zoom * ZOOM_STEP
+	} else {
+		zoom / ZOOM_STEP
+	};
+	// Round to avoid accumulating errors, and to get back to 100%.
+	let zoom = ((zoom * 100.0).round() / 100.0).clamp(MIN_ZOOM, MAX_ZOOM);
+	let _ = settings.set_double("zoom", zoom);
+}
+
+pub fn reset_zoom() {
+	settings().reset("zoom");
 }
 
 /// Margin around the text of documents, in pixels.
@@ -122,23 +151,24 @@ fn apply_color_scheme() {
 }
 
 fn update_css() {
+	let zoom = settings().double("zoom");
 	let css = format!(
 		"textview.markdown-view {{ {} }}\n.code-block textview {{ {} }}\n",
-		font_css(&document_font()),
-		font_css(&monospace_font()),
+		font_css(&document_font(), zoom),
+		font_css(&monospace_font(), zoom),
 	);
 	CSS_PROVIDER.with(|provider| provider.load_from_string(&css));
 }
 
-/// CSS declarations for a Pango font description.
-fn font_css(font: &pango::FontDescription) -> String {
+/// CSS declarations for a Pango font description, with its size scaled by `zoom`.
+fn font_css(font: &pango::FontDescription, zoom: f64) -> String {
 	let mut css = String::new();
 	if let Some(family) = font.family() {
 		let family = family.replace('\\', "\\\\").replace('"', "\\\"");
 		css.push_str(&format!("font-family: \"{family}\"; "));
 	}
 	if font.size() > 0 {
-		let size = f64::from(font.size()) / f64::from(pango::SCALE);
+		let size = f64::from(font.size()) / f64::from(pango::SCALE) * zoom;
 		let unit = if font.is_size_absolute() { "px" } else { "pt" };
 		css.push_str(&format!("font-size: {size}{unit}; "));
 	}
@@ -161,8 +191,8 @@ mod tests {
 	fn font_descriptions_to_css() {
 		let font = pango::FontDescription::from_string("Noto \"Serif\" Bold Italic 12");
 		assert_eq!(
-			font_css(&font),
-			"font-family: \"Noto \\\"Serif\\\"\"; font-size: 12pt; font-weight: 700; font-style: italic;"
+			font_css(&font, 1.5),
+			"font-family: \"Noto \\\"Serif\\\"\"; font-size: 18pt; font-weight: 700; font-style: italic;"
 		);
 	}
 }

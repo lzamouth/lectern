@@ -84,6 +84,9 @@ mod imp {
 					}
 				},
 			);
+			klass.install_action("win.zoom-in", None, |_, _, _| appearance::zoom(true));
+			klass.install_action("win.zoom-out", None, |_, _, _| appearance::zoom(false));
+			klass.install_action("win.zoom-reset", None, |_, _, _| appearance::reset_zoom());
 			klass.install_action("win.find", None, |window, _, _| {
 				let imp = window.imp();
 				imp.search_bar.set_search_mode(true);
@@ -122,6 +125,7 @@ mod imp {
 			obj.action_set_enabled("win.find", false);
 			obj.setup_recent_files();
 			obj.setup_drop_target();
+			obj.setup_zoom_on_scroll();
 			let handlers = appearance::connect_rendering_changed(glib::clone!(
 				#[weak]
 				obj,
@@ -272,6 +276,24 @@ impl LecternWindow {
 		imp.recent_stack
 			.set_visible_child_name(if files.is_empty() { "empty" } else { "list" });
 		imp.empty_recent_clamp.set_visible(!files.is_empty());
+	}
+
+	/// Ctrl+scroll zooms.
+	fn setup_zoom_on_scroll(&self) {
+		let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+		scroll.set_propagation_phase(gtk::PropagationPhase::Capture);
+		scroll.connect_scroll(|controller, _, dy| {
+			if !controller
+				.current_event_state()
+				.contains(gdk::ModifierType::CONTROL_MASK)
+				|| dy == 0.0
+			{
+				return glib::Propagation::Proceed;
+			}
+			appearance::zoom(dy < 0.0);
+			glib::Propagation::Stop
+		});
+		self.imp().markdown_view.add_controller(scroll);
 	}
 
 	/// Opens files dropped on the window: the first one in this window, the
