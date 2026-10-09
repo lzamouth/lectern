@@ -5,6 +5,38 @@ libadwaita. Documents are rendered with GTK widgets: no web engine, no HTML.
 
 > **Status:** early development.
 
+## Features
+
+- CommonMark and GitHub Flavored Markdown: headings, emphasis, lists and task
+  lists, block quotes, alerts, code blocks with syntax highlighting, tables,
+  links, images, footnotes and horizontal rules
+- Table columns resizable with the mouse
+- Search in the whole document, including code blocks and tables, with case
+  and whole word options
+- Automatic reload when the file changes on disk
+- Recent files, drag and drop, and opening from the file manager
+- Light and dark styles, configurable margin, fonts and zoom
+- Text selection and copy, including code blocks and tables
+- Available in English and French
+
+## Usage
+
+```sh
+lectern README.md
+cat README.md | lectern -
+```
+
+| Shortcut | Action |
+|----------|--------|
+| <kbd>Ctrl</kbd>+<kbd>O</kbd> | Open a file |
+| <kbd>Ctrl</kbd>+<kbd>N</kbd> | New window |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | Search |
+| <kbd>Ctrl</kbd>+<kbd>G</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Next and previous match |
+| <kbd>Ctrl</kbd>+<kbd>+</kbd>, <kbd>Ctrl</kbd>+<kbd>-</kbd>, <kbd>Ctrl</kbd>+<kbd>0</kbd> | Zoom in, zoom out, reset zoom |
+| <kbd>Ctrl</kbd>+<kbd>,</kbd> | Preferences |
+| <kbd>Ctrl</kbd>+<kbd>W</kbd> | Close the window |
+| <kbd>Ctrl</kbd>+<kbd>Q</kbd> | Quit |
+
 ## Building
 
 ### Dependencies

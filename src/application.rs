@@ -46,6 +46,40 @@ mod imp {
 			}
 		}
 
+		fn handle_local_options(
+			&self,
+			options: &glib::VariantDict,
+		) -> std::ops::ControlFlow<glib::ExitCode> {
+			if options.contains("version") {
+				println!("Lectern {}", config::VERSION);
+				return std::ops::ControlFlow::Break(glib::ExitCode::SUCCESS);
+			}
+			self.parent_handle_local_options(options)
+		}
+
+		fn command_line(&self, command_line: &gio::ApplicationCommandLine) -> glib::ExitCode {
+			let app = self.obj();
+			let arguments = command_line.arguments();
+			let paths = arguments.get(1..).unwrap_or_default();
+			if paths.is_empty() {
+				app.activate();
+				return glib::ExitCode::SUCCESS;
+			}
+			for path in paths {
+				let window = app.window_for_open();
+				if path == "-" {
+					if let Some(stdin) = command_line.stdin() {
+						let base_dir = command_line.cwd().map(gio::File::for_path);
+						window.open_stream(stdin, base_dir);
+					}
+				} else {
+					window.open_file(&command_line.create_file_for_arg(path));
+				}
+				window.present();
+			}
+			glib::ExitCode::SUCCESS
+		}
+
 		fn open(&self, files: &[gio::File], _hint: &str) {
 			let app = self.obj();
 			for file in files {
@@ -68,18 +102,34 @@ glib::wrapper! {
 
 impl LecternApplication {
 	pub fn new() -> Self {
-		glib::Object::builder()
+		let app: Self = glib::Object::builder()
 			.property("application-id", config::APP_ID)
-			.property("flags", gio::ApplicationFlags::HANDLES_OPEN)
+			.property(
+				"flags",
+				gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::HANDLES_COMMAND_LINE,
+			)
 			.property("resource-base-path", "/com/skunkcrafts/Lectern")
-			.build()
+			.build();
+		app.add_main_option(
+			"version",
+			glib::Char::from(b'v'),
+			glib::OptionFlags::NONE,
+			glib::OptionArg::None,
+			&gettext("Show the version"),
+			None,
+		);
+		app.set_option_context_parameter_string(Some(&gettext("[FILE…]")));
+		app.set_option_context_summary(Some(&gettext(
+			"Read Markdown documents. Use “-” to read the standard input.",
+		)));
+		app
 	}
 
 	/// Returns the active window if it shows no document yet, or a new window.
 	fn window_for_open(&self) -> LecternWindow {
 		self.active_window()
 			.and_downcast::<LecternWindow>()
-			.filter(|window| window.file().is_none())
+			.filter(|window| !window.has_document())
 			.unwrap_or_else(|| LecternWindow::new(self))
 	}
 

@@ -54,6 +54,8 @@ mod imp {
 		pub file: RefCell<Option<gio::File>>,
 		/// The document shown, to render it again when the preferences change.
 		pub document: RefCell<Option<document::Document>>,
+		/// Directory against which relative paths of the document are resolved.
+		pub base_dir: RefCell<Option<gio::File>>,
 		pub rendering_handlers: RefCell<Vec<glib::SignalHandlerId>>,
 		pub rerender_source: RefCell<Option<glib::SourceId>>,
 		pub file_monitor: RefCell<Option<gio::FileMonitor>>,
@@ -215,29 +217,80 @@ impl LecternWindow {
 		}
 
 		let document = document::parse(&text);
+		let base_dir = file.parent();
 		if reload {
-			self.show_document(&document, &file, true);
+			self.show_document(&document, base_dir.as_ref(), true);
+			imp.document.replace(Some(document));
 		} else {
-			self.show_document(&document, &file, false);
 			self.update_title(&file);
 			self.watch(&file);
 			recent::add(&file);
 			imp.file.replace(Some(file));
-			imp.stack.set_visible_child_name("document");
-			self.enable_search();
-			self.search(Some(0), true);
+			self.show_new_document(document, base_dir);
 		}
+	}
 
+	/// Shows the text read from `stream`, such as the standard input.
+	/// Relative paths are relative to `base_dir`.
+	pub fn open_stream(&self, stream: gio::InputStream, base_dir: Option<gio::File>) {
+		glib::spawn_future_local(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			async move {
+				let output = gio::MemoryOutputStream::new_resizable();
+				let read = output
+					.splice_future(
+						&stream,
+						gio::OutputStreamSpliceFlags::CLOSE_SOURCE
+							| gio::OutputStreamSpliceFlags::CLOSE_TARGET,
+						glib::Priority::DEFAULT,
+					)
+					.await;
+				if let Err(err) = read {
+					window.show_toast(err.message());
+					return;
+				}
+				let bytes = output.steal_as_bytes();
+				let text = String::from_utf8_lossy(&bytes);
+
+				let imp = window.imp();
+				imp.cancel_reload();
+				if let Some(monitor) = imp.file_monitor.take() {
+					monitor.cancel();
+				}
+				imp.file.replace(None);
+				let title = gettext("Standard Input");
+				imp.window_title.set_title(&title);
+				imp.window_title.set_subtitle("");
+				window.set_title(Some(&title));
+				window.show_new_document(document::parse(&text), base_dir);
+			}
+		));
+	}
+
+	/// Shows a document replacing the previous one, if any.
+	fn show_new_document(&self, document: document::Document, base_dir: Option<gio::File>) {
+		let imp = self.imp();
+		self.show_document(&document, base_dir.as_ref(), false);
 		imp.document.replace(Some(document));
+		imp.base_dir.replace(base_dir);
+		imp.stack.set_visible_child_name("document");
+		self.enable_search();
+		self.search(Some(0), true);
 
 		#[cfg(debug_assertions)]
-		if !reload {
+		{
 			if let Ok(query) = std::env::var("LECTERN_SNAPSHOT_SEARCH") {
 				imp.search_bar.set_search_mode(true);
 				imp.search_entry.set_text(&query);
 			}
 			crate::devtools::snapshot_if_requested(self);
 		}
+	}
+
+	/// Whether the window shows a document.
+	pub fn has_document(&self) -> bool {
+		self.imp().document.borrow().is_some()
 	}
 
 	fn setup_recent_files(&self) {
@@ -327,17 +380,23 @@ impl LecternWindow {
 		self.add_controller(target);
 	}
 
-	/// Renders `document`, read from `file`. When `keep_state` is set, the
-	/// document replaces a version of itself: the reading position, the
-	/// column widths and the selected search match are kept.
-	fn show_document(&self, document: &document::Document, file: &gio::File, keep_state: bool) {
+	/// Renders `document`, whose relative paths are relative to `base_dir`.
+	/// When `keep_state` is set, the document replaces a version of itself:
+	/// the reading position, the column widths and the selected search match
+	/// are kept.
+	fn show_document(
+		&self,
+		document: &document::Document,
+		base_dir: Option<&gio::File>,
+		keep_state: bool,
+	) {
 		let view = &self.imp().markdown_view;
 		let state = keep_state.then(|| view.view_state());
 		let current_match = view.match_position().0;
 		let margin = appearance::margin();
 		view.set_left_margin(margin);
 		view.set_right_margin(margin);
-		view.set_document(document, file.parent().as_ref());
+		view.set_document(document, base_dir);
 		if let Some(state) = state {
 			view.restore_view_state(&state);
 			self.search(Some(current_match.unwrap_or_default()), false);
@@ -364,10 +423,11 @@ impl LecternWindow {
 
 	fn rerender(&self) {
 		let imp = self.imp();
-		let (Some(document), Some(file)) = (imp.document.borrow().clone(), self.file()) else {
+		let Some(document) = imp.document.borrow().clone() else {
 			return;
 		};
-		self.show_document(&document, &file, true);
+		let base_dir = imp.base_dir.borrow().clone();
+		self.show_document(&document, base_dir.as_ref(), true);
 	}
 
 	/// Reloads the document when its file changes.
@@ -546,7 +606,7 @@ impl LecternWindow {
 			self.launch(gtk::UriLauncher::new(url).launch_future(Some(self)));
 			return;
 		}
-		let base_dir = self.file().and_then(|file| file.parent());
+		let base_dir = self.imp().base_dir.borrow().clone();
 		let Some(target) = uri::local_file(url, base_dir.as_ref()) else {
 			return;
 		};

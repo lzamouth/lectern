@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 21:52+0200\n"
+"POT-Creation-Date: 2026-10-09 21:56+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -222,8 +222,20 @@ msgstr "_Préférences"
 msgid "_About Lectern"
 msgstr "À _propos de Lectern"
 
+#: src/application.rs:118
+msgid "Show the version"
+msgstr "Afficher la version"
+
+#: src/application.rs:121
+msgid "[FILE…]"
+msgstr "[FICHIER…]"
+
+#: src/application.rs:123
+msgid "Read Markdown documents. Use “-” to read the standard input."
+msgstr "Lire des documents Markdown. Utilisez « - » pour lire l’entrée standard."
+
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-#: src/application.rs:132
+#: src/application.rs:182
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
@@ -251,22 +263,26 @@ msgstr "Avertissement"
 msgid "Caution"
 msgstr "Attention"
 
-#: src/window.rs:205
+#: src/window.rs:207
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:523
+#: src/window.rs:262
+msgid "Standard Input"
+msgstr "Entrée standard"
+
+#: src/window.rs:583
 msgid "{current} of {count}"
 msgstr "{current} sur {count}"
 
-#: src/window.rs:526
+#: src/window.rs:586
 msgid "No results"
 msgstr "Aucun résultat"
 
-#: src/window.rs:578
+#: src/window.rs:638
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:587
+#: src/window.rs:647
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"
