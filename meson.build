@@ -28,6 +28,7 @@ subdir('po')
 devenv = environment()
 devenv.set('GSETTINGS_SCHEMA_DIR', meson.project_build_root() / 'data')
 devenv.set('LECTERN_LOCALEDIR', meson.project_build_root() / 'po')
+devenv.prepend('PATH', meson.project_build_root() / 'src')
 meson.add_devenv(devenv)
 
 gnome.post_install(

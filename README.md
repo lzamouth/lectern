@@ -26,11 +26,12 @@ sudo apt install cargo meson libgtk-4-dev libadwaita-1-dev libgtksourceview-5-de
 ```sh
 meson setup build
 meson compile -C build
-meson devenv -C build ./src/lectern path/to/file.md
+meson devenv -C build -w . lectern path/to/file.md
 ```
 
 `meson devenv` points the application to the GSettings schema and translations
-compiled in the build directory.
+compiled in the build directory. `-w .` keeps the current directory, so that
+relative paths work.
 
 ### Install
 
