@@ -189,6 +189,27 @@ impl Table {
 			.unwrap_or_default()
 	}
 
+	/// The column widths, if the user resized the columns.
+	pub fn user_widths(&self) -> Option<Vec<i32>> {
+		let grid = self.imp().grid.borrow();
+		let grid = grid.as_ref()?.imp();
+		grid.user_resized
+			.get()
+			.then(|| grid.widths.borrow().clone())
+	}
+
+	/// Sets column widths chosen by the user, if the column count matches.
+	pub fn set_user_widths(&self, widths: &[i32]) {
+		if let Some(grid) = self.imp().grid.borrow().as_ref() {
+			let imp = grid.imp();
+			if imp.widths.borrow().len() == widths.len() {
+				imp.widths.replace(widths.to_vec());
+				imp.user_resized.set(true);
+				grid.queue_resize();
+			}
+		}
+	}
+
 	/// Fits the columns in `width` pixels, unless the user resized them.
 	pub fn fit(&self, width: i32) {
 		if let Some(grid) = self.imp().grid.borrow().as_ref() {

@@ -4,6 +4,7 @@
 //! once a document is loaded, then quits the application.
 //! `LECTERN_SNAPSHOT_SIZE=WIDTHxHEIGHT` resizes the window before the picture.
 //! `LECTERN_SNAPSHOT_SEARCH=text` searches the text before the picture.
+//! `LECTERN_SNAPSHOT_DELAY=milliseconds` waits longer before the picture.
 
 use std::time::Duration;
 
@@ -31,7 +32,11 @@ pub fn snapshot_if_requested(window: &impl IsA<gtk::Window>) {
 			),
 		);
 	}
-	glib::timeout_add_local_once(Duration::from_millis(800), move || {
+	let delay = std::env::var("LECTERN_SNAPSHOT_DELAY")
+		.ok()
+		.and_then(|delay| delay.parse().ok())
+		.unwrap_or(800);
+	glib::timeout_add_local_once(Duration::from_millis(delay), move || {
 		let (width, height) = (window.width(), window.height());
 		let paintable = gtk::WidgetPaintable::new(Some(&window));
 		let snapshot = gtk::Snapshot::new();

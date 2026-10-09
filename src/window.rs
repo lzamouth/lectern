@@ -1,4 +1,5 @@
 use std::cell::{OnceCell, RefCell};
+use std::time::Duration;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -13,6 +14,9 @@ use crate::uri;
 use crate::widgets::MarkdownView;
 
 const MARKDOWN_EXTENSIONS: [&str; 5] = ["md", "markdown", "mdown", "mkd", "mkdn"];
+
+/// Delay before reloading a changed file, to let editors finish saving it.
+const RELOAD_DELAY: Duration = Duration::from_millis(250);
 
 mod imp {
 	use super::*;
@@ -35,6 +39,9 @@ mod imp {
 		#[template_child]
 		pub match_label: TemplateChild<gtk::Label>,
 		pub file: RefCell<Option<gio::File>>,
+		pub file_monitor: RefCell<Option<gio::FileMonitor>>,
+		/// Pending reload, delayed until the file stops changing.
+		pub reload_source: RefCell<Option<glib::SourceId>>,
 		pub settings: OnceCell<gio::Settings>,
 	}
 
@@ -85,8 +92,20 @@ mod imp {
 
 	impl WidgetImpl for LecternWindow {}
 
+	impl LecternWindow {
+		pub(super) fn cancel_reload(&self) {
+			if let Some(source) = self.reload_source.take() {
+				source.remove();
+			}
+		}
+	}
+
 	impl WindowImpl for LecternWindow {
 		fn close_request(&self) -> glib::Propagation {
+			self.cancel_reload();
+			if let Some(monitor) = self.file_monitor.take() {
+				monitor.cancel();
+			}
 			self.obj().save_window_state();
 			self.parent_close_request()
 		}
@@ -119,37 +138,107 @@ impl LecternWindow {
 			#[weak(rename_to = window)]
 			self,
 			async move {
-				window.load_file(file).await;
+				window.load_file(file, false).await;
 			}
 		));
 	}
 
-	async fn load_file(&self, file: gio::File) {
+	/// Loads `file`. When `reload` is set, the file is the current one: the
+	/// reading position is kept, and errors are ignored since the file may be
+	/// in the middle of being saved.
+	async fn load_file(&self, file: gio::File, reload: bool) {
 		let imp = self.imp();
-		match file.load_contents_future().await {
-			Ok((bytes, _etag)) => {
-				let text = String::from_utf8_lossy(&bytes);
-				imp.markdown_view
-					.set_document(&document::parse(&text), file.parent().as_ref());
-				self.update_title(&file);
-				imp.file.replace(Some(file));
-				imp.stack.set_visible_child_name("document");
-				self.search();
-				#[cfg(debug_assertions)]
-				if let Ok(query) = std::env::var("LECTERN_SNAPSHOT_SEARCH") {
-					imp.search_bar.set_search_mode(true);
-					imp.search_entry.set_text(&query);
-				}
-				#[cfg(debug_assertions)]
-				crate::devtools::snapshot_if_requested(self);
-			}
+		let text = match file.load_contents_future().await {
+			Ok((bytes, _etag)) => String::from_utf8_lossy(&bytes).into_owned(),
+			Err(_) if reload => return,
 			Err(err) => {
 				let message = gettext("Unable to open “{name}”: {error}")
 					.replace("{name}", &display_name(&file))
 					.replace("{error}", err.message());
 				self.show_toast(&message);
+				return;
 			}
+		};
+		// The user may have opened another file meanwhile.
+		if reload && self.file().as_ref() != Some(&file) {
+			return;
 		}
+
+		let view = &imp.markdown_view;
+		let state = reload.then(|| view.view_state());
+		let current_match = view.match_position().0;
+		view.set_document(&document::parse(&text), file.parent().as_ref());
+
+		if let Some(state) = state {
+			view.restore_view_state(&state);
+			self.search(Some(current_match.unwrap_or_default()), false);
+		} else {
+			self.update_title(&file);
+			self.watch(&file);
+			imp.file.replace(Some(file));
+			imp.stack.set_visible_child_name("document");
+			self.search(Some(0), true);
+		}
+
+		#[cfg(debug_assertions)]
+		if !reload {
+			if let Ok(query) = std::env::var("LECTERN_SNAPSHOT_SEARCH") {
+				imp.search_bar.set_search_mode(true);
+				imp.search_entry.set_text(&query);
+			}
+			crate::devtools::snapshot_if_requested(self);
+		}
+	}
+
+	/// Reloads the document when its file changes.
+	fn watch(&self, file: &gio::File) {
+		let imp = self.imp();
+		imp.cancel_reload();
+		if let Some(monitor) = imp.file_monitor.take() {
+			monitor.cancel();
+		}
+		// Editors often save by renaming a new file over the old one: watch moves.
+		let Ok(monitor) =
+			file.monitor_file(gio::FileMonitorFlags::WATCH_MOVES, gio::Cancellable::NONE)
+		else {
+			return;
+		};
+		monitor.connect_changed(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_, _, _, event| {
+				if !matches!(
+					event,
+					gio::FileMonitorEvent::AttributeChanged
+						| gio::FileMonitorEvent::PreUnmount
+						| gio::FileMonitorEvent::Unmounted
+				) {
+					window.schedule_reload();
+				}
+			}
+		));
+		imp.file_monitor.replace(Some(monitor));
+	}
+
+	fn schedule_reload(&self) {
+		let imp = self.imp();
+		imp.cancel_reload();
+		let source = glib::timeout_add_local_once(
+			RELOAD_DELAY,
+			glib::clone!(
+				#[weak(rename_to = window)]
+				self,
+				move || {
+					window.imp().reload_source.take();
+					if let Some(file) = window.file() {
+						glib::spawn_future_local(async move {
+							window.load_file(file, true).await;
+						});
+					}
+				}
+			),
+		);
+		imp.reload_source.replace(Some(source));
 	}
 
 	fn setup_search(&self) {
@@ -162,7 +251,7 @@ impl LecternWindow {
 				glib::clone!(
 					#[weak(rename_to = window)]
 					self,
-					move |_, _| window.search()
+					move |_, _| window.search(Some(0), true)
 				),
 			);
 		}
@@ -170,7 +259,7 @@ impl LecternWindow {
 		imp.search_entry.connect_search_changed(glib::clone!(
 			#[weak(rename_to = window)]
 			self,
-			move |_| window.search()
+			move |_| window.search(Some(0), true)
 		));
 		imp.search_entry.connect_activate(glib::clone!(
 			#[weak(rename_to = window)]
@@ -202,7 +291,7 @@ impl LecternWindow {
 				self,
 				move |bar| {
 					if bar.is_search_mode() {
-						window.search();
+						window.search(Some(0), true);
 					} else {
 						window.imp().markdown_view.clear_search();
 						window.update_match_label();
@@ -211,8 +300,9 @@ impl LecternWindow {
 			));
 	}
 
-	/// Searches the text of the search entry in the document.
-	fn search(&self) {
+	/// Searches the text of the search entry in the document, and selects the
+	/// match at index `select` (or the last one), scrolling to it if `reveal`.
+	fn search(&self, select: Option<usize>, reveal: bool) {
 		let imp = self.imp();
 		if !imp.search_bar.is_search_mode() {
 			return;
@@ -222,7 +312,12 @@ impl LecternWindow {
 			case_sensitive: settings.boolean("search-case-sensitive"),
 			whole_words: settings.boolean("search-whole-words"),
 		};
-		imp.markdown_view.search(&imp.search_entry.text(), options);
+		let count = imp.markdown_view.search(&imp.search_entry.text(), options);
+		if let Some(index) = select
+			&& count > 0
+		{
+			imp.markdown_view.select_match(index.min(count - 1), reveal);
+		}
 		self.update_match_label();
 	}
 

@@ -50,6 +50,15 @@ struct Embedded {
 	text: String,
 }
 
+/// State of the view to keep when the document is reloaded.
+#[derive(Debug, Default)]
+pub struct ViewState {
+	/// Vertical scrolling position, in pixels.
+	scroll: f64,
+	/// Widths of the table columns, for the tables resized by the user.
+	table_widths: Vec<Option<Vec<i32>>>,
+}
+
 /// A search match in the buffer of a text view, as character offsets.
 #[derive(Debug, Clone)]
 struct Match {
@@ -64,6 +73,8 @@ const MATCH_TAG: &str = "search-match";
 const CURRENT_MATCH_TAG: &str = "search-current-match";
 /// Maximum number of frames spent scrolling to a match in an embedded widget.
 const MAX_REVEAL_FRAMES: u32 = 60;
+/// Maximum number of frames spent restoring the scrolling position.
+const MAX_RESTORE_FRAMES: u32 = 60;
 /// Mark used to scroll to the selected match.
 const REVEAL_MARK: &str = "search-reveal";
 
@@ -255,7 +266,7 @@ impl MarkdownView {
 	}
 
 	/// Highlights the occurrences of `query` in the document, including code
-	/// blocks and tables, and selects the first one. Returns their count.
+	/// blocks and tables. Returns their count.
 	pub fn search(&self, query: &str, options: SearchOptions) -> usize {
 		self.clear_search();
 
@@ -287,9 +298,6 @@ impl MarkdownView {
 		}
 		let count = matches.len();
 		self.imp().matches.replace(matches);
-		if count > 0 {
-			self.select_match(0);
-		}
 		count
 	}
 
@@ -327,10 +335,11 @@ impl MarkdownView {
 			(Some(index), false) => (index + 1) % count,
 			(Some(index), true) => (index + count - 1) % count,
 		};
-		self.select_match(index);
+		self.select_match(index, true);
 	}
 
-	fn select_match(&self, index: usize) {
+	/// Selects a match, and scrolls to it if `reveal`.
+	pub fn select_match(&self, index: usize, reveal: bool) {
 		let imp = self.imp();
 		let matches = imp.matches.borrow();
 		if let Some(previous) = imp.current_match.get().and_then(|index| matches.get(index)) {
@@ -351,7 +360,67 @@ impl MarkdownView {
 			&buffer.iter_at_offset(found.end),
 		);
 		imp.current_match.set(Some(index));
-		self.reveal(found);
+		if reveal {
+			self.reveal(found);
+		}
+	}
+
+	/// The scrolling position and the column widths set by the user, to
+	/// restore them after reloading the document.
+	pub fn view_state(&self) -> ViewState {
+		let scroll = self
+			.vadjustment()
+			.map_or(0.0, |adjustment| adjustment.value());
+		let table_widths = self
+			.imp()
+			.embedded
+			.borrow()
+			.iter()
+			.filter_map(|embedded| embedded.widget.downcast_ref::<Table>())
+			.map(Table::user_widths)
+			.collect();
+		ViewState {
+			scroll,
+			table_widths,
+		}
+	}
+
+	/// Restores a state saved by [`Self::view_state`], as far as the
+	/// document still matches it.
+	pub fn restore_view_state(&self, state: &ViewState) {
+		let embedded = self.imp().embedded.borrow();
+		let tables = embedded
+			.iter()
+			.filter_map(|embedded| embedded.widget.downcast_ref::<Table>());
+		for (table, widths) in tables.zip(&state.table_widths) {
+			if let Some(widths) = widths {
+				table.set_user_widths(widths);
+			}
+		}
+
+		// The layout is validated progressively: scroll at each frame until
+		// the position is reached and stays there.
+		let scroll = state.scroll;
+		let frames = Cell::new(0);
+		let reached = Cell::new(0);
+		self.add_tick_callback(move |view, _| {
+			frames.set(frames.get() + 1);
+			let Some(adjustment) = view.vadjustment() else {
+				return glib::ControlFlow::Break;
+			};
+			let value = scroll.min(adjustment.upper() - adjustment.page_size());
+			if (adjustment.value() - value).abs() < 1.0 {
+				reached.set(reached.get() + 1);
+			} else {
+				reached.set(0);
+				adjustment.set_value(value);
+			}
+			if reached.get() >= 2 || frames.get() > MAX_RESTORE_FRAMES {
+				glib::ControlFlow::Break
+			} else {
+				glib::ControlFlow::Continue
+			}
+		});
 	}
 
 	/// Scrolls so that a match is visible, even inside an embedded widget.
