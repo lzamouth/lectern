@@ -1,9 +1,9 @@
-use comrak::nodes::{AstNode, ListDelimType, ListType, NodeValue, TableAlignment};
+use comrak::nodes::{AlertType, AstNode, ListDelimType, ListType, NodeValue, TableAlignment};
 use comrak::{Anchorizer, Arena, Options};
 
 use super::{
-	Alignment, Block, Document, Image, List, ListItem, ListKind, Span, Style, Table, html,
-	plain_text,
+	AlertKind, Alignment, Block, Document, Footnote, Image, List, ListItem, ListKind, Span, Style,
+	Table, footnote_anchor, html, plain_text,
 };
 
 pub fn parse(markdown: &str) -> Document {
@@ -12,6 +12,8 @@ pub fn parse(markdown: &str) -> Document {
 	options.extension.table = true;
 	options.extension.autolink = true;
 	options.extension.tasklist = true;
+	options.extension.footnotes = true;
+	options.extension.alerts = true;
 	options.extension.front_matter_delimiter = Some("---".to_owned());
 
 	let arena = Arena::new();
@@ -85,6 +87,27 @@ impl Builder {
 			}
 			NodeValue::ThematicBreak => blocks.push(Block::ThematicBreak),
 			NodeValue::BlockQuote => blocks.push(Block::Quote(self.blocks(node))),
+			NodeValue::Alert(alert) => blocks.push(Block::Alert {
+				kind: match alert.alert_type {
+					AlertType::Note => AlertKind::Note,
+					AlertType::Tip => AlertKind::Tip,
+					AlertType::Important => AlertKind::Important,
+					AlertType::Warning => AlertKind::Warning,
+					AlertType::Caution => AlertKind::Caution,
+				},
+				title: alert.title.clone(),
+				blocks: self.blocks(node),
+			}),
+			NodeValue::FootnoteDefinition(definition) => {
+				let footnote = Footnote {
+					anchor: footnote_anchor(&definition.name),
+					blocks: self.blocks(node),
+				};
+				match blocks.last_mut() {
+					Some(Block::Footnotes(footnotes)) => footnotes.push(footnote),
+					_ => blocks.push(Block::Footnotes(vec![footnote])),
+				}
+			}
 			NodeValue::List(list) => {
 				let kind = match list.list_type {
 					ListType::Bullet => ListKind::Bullet,
@@ -206,6 +229,14 @@ fn collect_inlines<'a>(
 				collect_inlines(child, style, link, spans);
 			}
 			NodeValue::Link(target) => collect_inlines(child, style, Some(&target.url), spans),
+			NodeValue::FootnoteReference(reference) => {
+				let style = Style {
+					superscript: true,
+					..style
+				};
+				let target = format!("#{}", footnote_anchor(&reference.name));
+				push_text(spans, &reference.ix.to_string(), style, Some(&target));
+			}
 			NodeValue::Image(image) => {
 				let mut alt = Vec::new();
 				collect_inlines(child, Style::default(), None, &mut alt);
@@ -459,6 +490,50 @@ mod tests {
 		};
 		assert_eq!(table.to_tsv(), "a\tb\n1\t2\n3\t");
 		assert_eq!(document.blocks, [Block::Table(table)]);
+	}
+
+	#[test]
+	fn alerts() {
+		let document = parse("> [!WARNING] Careful\n> Hot.\n");
+		assert_eq!(
+			document.blocks,
+			[Block::Alert {
+				kind: AlertKind::Warning,
+				title: Some("Careful".to_owned()),
+				blocks: vec![Block::Paragraph(vec![Span::plain("Hot.")])],
+			}]
+		);
+	}
+
+	#[test]
+	fn footnotes() {
+		let document = parse("A[^b] B[^a].\n\n[^a]: First.\n[^b]: Second.\n");
+		let reference = |number: &str, name: &str| Span {
+			text: number.to_owned(),
+			style: Style {
+				superscript: true,
+				..Style::default()
+			},
+			link: Some(format!("#footnote-{name}")),
+			image: None,
+		};
+		let footnote = |name: &str, text: &str| Footnote {
+			anchor: format!("footnote-{name}"),
+			blocks: vec![Block::Paragraph(vec![Span::plain(text)])],
+		};
+		assert_eq!(
+			document.blocks,
+			[
+				Block::Paragraph(vec![
+					Span::plain("A"),
+					reference("1", "b"),
+					Span::plain(" B"),
+					reference("2", "a"),
+					Span::plain("."),
+				]),
+				Block::Footnotes(vec![footnote("b", "Second."), footnote("a", "First.")]),
+			]
+		);
 	}
 
 	#[test]

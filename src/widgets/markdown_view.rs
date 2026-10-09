@@ -5,13 +5,14 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use adw::prelude::*;
+use gettextrs::gettext;
 use gtk::glib::subclass::Signal;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib, graphene, pango};
 
 use super::{CodeBlock, Image, Table};
 use crate::appearance;
-use crate::document::{Block, Document, List, ListKind, Span};
+use crate::document::{AlertKind, Block, Document, Footnote, List, ListKind, Span};
 use crate::search::{self, SearchOptions};
 use crate::uri;
 
@@ -88,6 +89,8 @@ enum Decoration {
 		spacing: i32,
 		start: i32,
 		end: i32,
+		/// Colors the bar for alerts.
+		alert: Option<AlertKind>,
 	},
 	/// Horizontal line in the middle of the line at `offset`.
 	Rule {
@@ -627,6 +630,17 @@ impl MarkdownView {
 		}
 		add(gtk::TextTag::builder().name("strong").weight(700).build());
 		add(gtk::TextTag::builder()
+			.name("superscript")
+			.scale(0.75)
+			.rise(5 * pango::SCALE)
+			.build());
+		for kind in ALERT_KINDS {
+			add(gtk::TextTag::builder()
+				.name(alert_tag_name(kind))
+				.weight(700)
+				.build());
+		}
+		add(gtk::TextTag::builder()
 			.name("emphasis")
 			.style(pango::Style::Italic)
 			.build());
@@ -713,6 +727,7 @@ impl MarkdownView {
 			return;
 		}
 		let buffer = self.buffer();
+		let dark = adw::StyleManager::default().is_dark();
 		let foreground = self.color();
 		let color = gdk::RGBA::new(
 			foreground.red(),
@@ -729,7 +744,9 @@ impl MarkdownView {
 					spacing,
 					start,
 					end,
+					alert,
 				} => {
+					let color = alert.map_or(color, |kind| alert_color(kind, dark));
 					let (top, _) = self.line_yrange(&buffer.iter_at_offset(start));
 					let (last_top, last_height) = self.line_yrange(&buffer.iter_at_offset(end - 1));
 					let bottom = last_top + last_height - spacing;
@@ -775,6 +792,9 @@ impl MarkdownView {
 
 		let code_background = gdk::RGBA::new(0.5, 0.5, 0.5, 0.15);
 		tag("code").set_background_rgba(Some(&code_background));
+		for kind in ALERT_KINDS {
+			tag(alert_tag_name(kind)).set_foreground_rgba(Some(&alert_color(kind, dark)));
+		}
 		tag("link")
 			.set_foreground_rgba(Some(&style_manager.accent_color().to_standalone_rgba(dark)));
 	}
@@ -799,6 +819,53 @@ impl Default for Context {
 			bullet_depth: 0,
 		}
 	}
+}
+
+const ALERT_KINDS: [AlertKind; 5] = [
+	AlertKind::Note,
+	AlertKind::Tip,
+	AlertKind::Important,
+	AlertKind::Warning,
+	AlertKind::Caution,
+];
+
+fn alert_tag_name(kind: AlertKind) -> &'static str {
+	match kind {
+		AlertKind::Note => "alert-note",
+		AlertKind::Tip => "alert-tip",
+		AlertKind::Important => "alert-important",
+		AlertKind::Warning => "alert-warning",
+		AlertKind::Caution => "alert-caution",
+	}
+}
+
+/// The default title of an alert.
+fn alert_name(kind: AlertKind) -> String {
+	match kind {
+		AlertKind::Note => gettext("Note"),
+		AlertKind::Tip => gettext("Tip"),
+		AlertKind::Important => gettext("Important"),
+		AlertKind::Warning => gettext("Warning"),
+		AlertKind::Caution => gettext("Caution"),
+	}
+}
+
+/// Color of an alert, from the GNOME palette.
+fn alert_color(kind: AlertKind, dark: bool) -> gdk::RGBA {
+	let (light_color, dark_color): ((u8, u8, u8), (u8, u8, u8)) = match kind {
+		AlertKind::Note => ((0x1c, 0x71, 0xd8), (0x62, 0xa0, 0xea)),
+		AlertKind::Tip => ((0x26, 0xa2, 0x69), (0x57, 0xe3, 0x89)),
+		AlertKind::Important => ((0x91, 0x41, 0xac), (0xc0, 0x61, 0xcb)),
+		AlertKind::Warning => ((0xc6, 0x46, 0x00), (0xff, 0xa3, 0x48)),
+		AlertKind::Caution => ((0xc0, 0x1c, 0x28), (0xf6, 0x61, 0x51)),
+	};
+	let (red, green, blue) = if dark { dark_color } else { light_color };
+	gdk::RGBA::new(
+		f32::from(red) / 255.0,
+		f32::from(green) / 255.0,
+		f32::from(blue) / 255.0,
+		1.0,
+	)
 }
 
 /// Finds the occurrences of `query` in the buffer of `view`.
@@ -919,10 +986,34 @@ impl Renderer<'_> {
 						spacing: context.spacing,
 						start,
 						end: self.offset(),
+						alert: None,
 					});
 					self.set_last_line_spacing(context.spacing);
 				}
 			}
+			Block::Alert {
+				kind,
+				title,
+				blocks,
+			} => {
+				let inner = Context {
+					indent: context.indent + QUOTE_INDENT,
+					..context
+				};
+				let title = title.clone().unwrap_or_else(|| alert_name(*kind));
+				self.insert(&title, &[alert_tag_name(*kind)]);
+				self.end_leaf_block(start, inner);
+				self.blocks(blocks, inner);
+				self.decorations.push(Decoration::QuoteBar {
+					indent: context.indent,
+					spacing: context.spacing,
+					start,
+					end: self.offset(),
+					alert: Some(*kind),
+				});
+				self.set_last_line_spacing(context.spacing);
+			}
+			Block::Footnotes(footnotes) => self.footnotes(footnotes, context),
 			Block::List(list) => self.list(list, context),
 			Block::ThematicBreak => {
 				self.end_leaf_block(start, context);
@@ -956,40 +1047,66 @@ impl Renderer<'_> {
 					format!("{}{delimiter}", start + index)
 				}
 			};
-			let marker = format!("{marker} ");
+			self.item(&marker, &item.blocks, inner);
+		}
+		self.set_last_line_spacing(context.spacing);
+	}
 
-			let start = self.offset();
-			self.insert(&marker, &[]);
-			if !matches!(
-				item.blocks.first(),
-				Some(Block::Paragraph(_) | Block::Heading { .. })
-			) {
-				// The marker gets a line of its own.
-				self.end_leaf_block(start, inner);
-			}
-			self.blocks(&item.blocks, inner);
+	/// Renders a list item, with `marker` hanging in its indentation.
+	fn item(&mut self, marker: &str, blocks: &[Block], inner: Context) {
+		let marker = format!("{marker} ");
+		let start = self.offset();
+		self.insert(&marker, &[]);
+		if !matches!(
+			blocks.first(),
+			Some(Block::Paragraph(_) | Block::Heading { .. })
+		) {
+			// The marker gets a line of its own.
+			self.end_leaf_block(start, inner);
+		}
+		self.blocks(blocks, inner);
 
-			// Hang the marker in the indentation of the item's first line. Pango
-			// indents the following lines of a paragraph when the indent is
-			// negative: shift the whole paragraph left, and indent it back.
-			let (marker_width, _) = self.view.create_pango_layout(Some(&marker)).pixel_size();
-			let margin = self.view.left_margin() + inner.indent - marker_width;
-			let hang = self
-				.view
-				.tag(&format!("hang-{margin}-{marker_width}"), |tag| {
-					tag.set_left_margin(margin);
-					tag.set_indent(-marker_width);
-				});
-			let first_line_start = self.buffer.iter_at_offset(start);
-			let mut first_line_end = first_line_start;
-			first_line_end.forward_line();
-			self.buffer.remove_tag(
-				&self.indent_tag(inner.indent),
-				&first_line_start,
-				&first_line_end,
-			);
-			self.buffer
-				.apply_tag(&hang, &first_line_start, &first_line_end);
+		// Hang the marker in the indentation of the item's first line. Pango
+		// indents the following lines of a paragraph when the indent is
+		// negative: shift the whole paragraph left, and indent it back.
+		let (marker_width, _) = self.view.create_pango_layout(Some(&marker)).pixel_size();
+		let margin = self.view.left_margin() + inner.indent - marker_width;
+		let hang = self
+			.view
+			.tag(&format!("hang-{margin}-{marker_width}"), |tag| {
+				tag.set_left_margin(margin);
+				tag.set_indent(-marker_width);
+			});
+		let first_line_start = self.buffer.iter_at_offset(start);
+		let mut first_line_end = first_line_start;
+		first_line_end.forward_line();
+		self.buffer.remove_tag(
+			&self.indent_tag(inner.indent),
+			&first_line_start,
+			&first_line_end,
+		);
+		self.buffer
+			.apply_tag(&hang, &first_line_start, &first_line_end);
+	}
+
+	/// Renders the footnote definitions, numbered like their references.
+	fn footnotes(&mut self, footnotes: &[Footnote], context: Context) {
+		let start = self.offset();
+		self.end_leaf_block(start, context);
+		self.decorations.push(Decoration::Rule {
+			indent: context.indent,
+			spacing: context.spacing,
+			offset: start,
+		});
+		let inner = Context {
+			indent: context.indent + LIST_INDENT,
+			spacing: TIGHT_SPACING,
+			..context
+		};
+		for (index, footnote) in footnotes.iter().enumerate() {
+			let mark = self.buffer.create_mark(None, &self.buffer.end_iter(), true);
+			self.anchors.insert(footnote.anchor.clone(), mark);
+			self.item(&format!("{}.", index + 1), &footnote.blocks, inner);
 		}
 		self.set_last_line_spacing(context.spacing);
 	}
@@ -1037,6 +1154,9 @@ impl Renderer<'_> {
 			}
 			if style.code {
 				tags.push("code");
+			}
+			if style.superscript {
+				tags.push("superscript");
 			}
 			if span.link.is_some() {
 				tags.push("link");

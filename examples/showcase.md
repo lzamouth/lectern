@@ -78,6 +78,31 @@ A loose list:
 
 Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy.<!-- a hidden comment -->
 
+## Alerts
+
+> [!NOTE]
+> Useful information that users should know, even when skimming.
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING] Hot surface
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+
+## Footnotes
+
+Footnote references are links to their definitions[^reader], which are
+gathered at the end of the document[^end].
+
+[^reader]: Lectern is a Markdown *reader*.
+[^end]: Like this one.
+
 ## Tables
 
 Drag the vertical lines to resize a column, double-click them to fit the

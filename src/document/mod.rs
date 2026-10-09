@@ -24,9 +24,39 @@ pub enum Block {
 		text: String,
 	},
 	Quote(Vec<Block>),
+	/// GitHub alert: a block quote starting with `[!NOTE]`, `[!WARNING]`…
+	Alert {
+		kind: AlertKind,
+		/// Custom title, replacing the name of the kind.
+		title: Option<String>,
+		blocks: Vec<Block>,
+	},
 	List(List),
 	Table(Table),
 	ThematicBreak,
+	/// Footnote definitions, gathered at the end of the document.
+	Footnotes(Vec<Footnote>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlertKind {
+	Note,
+	Tip,
+	Important,
+	Warning,
+	Caution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Footnote {
+	/// Anchor targeted by the references to the footnote.
+	pub anchor: String,
+	pub blocks: Vec<Block>,
+}
+
+/// Anchor of the definition of the footnote named `name`.
+pub fn footnote_anchor(name: &str) -> String {
+	format!("footnote-{name}")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,6 +121,7 @@ pub struct Style {
 	pub emphasis: bool,
 	pub strikethrough: bool,
 	pub code: bool,
+	pub superscript: bool,
 }
 
 /// A run of text sharing the same style and link target, or an image.
