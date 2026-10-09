@@ -9,6 +9,8 @@ use gettextrs::gettext;
 use gtk::glib;
 use sourceview5::prelude::*;
 
+use crate::appearance;
+
 /// Info strings that GtkSourceView does not recognize by language id or file extension.
 const LANGUAGE_ALIASES: [(&str, &str); 9] = [
 	("bash", "sh"),
@@ -162,12 +164,7 @@ impl CodeBlock {
 	}
 
 	fn update_style_scheme(&self) {
-		let name = if adw::StyleManager::default().is_dark() {
-			"Adwaita-dark"
-		} else {
-			"Adwaita"
-		};
-		let scheme = sourceview5::StyleSchemeManager::default().scheme(name);
+		let scheme = appearance::code_style_scheme(adw::StyleManager::default().is_dark());
 		if let Some(buffer) = self.imp().buffer.borrow().as_ref() {
 			buffer.set_style_scheme(scheme.as_ref());
 		}

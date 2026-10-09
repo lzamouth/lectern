@@ -7,7 +7,8 @@ use gtk::{gdk, gio, glib, pango};
 use crate::config;
 
 /// Keys of the settings affecting the rendering of documents.
-pub const RENDERING_KEYS: [&str; 5] = [
+pub const RENDERING_KEYS: [&str; 6] = [
+	"code-style-scheme",
 	"margin",
 	"use-system-fonts",
 	"document-font",
@@ -108,6 +109,48 @@ pub fn zoom(zoom_in: bool) {
 
 pub fn reset_zoom() {
 	settings().reset("zoom");
+}
+
+/// Default code color scheme, which follows the GNOME style.
+const DEFAULT_CODE_STYLE_SCHEME: &str = "Adwaita";
+
+/// The code color scheme of the preferences, in its light or dark variant.
+pub fn code_style_scheme(dark: bool) -> Option<sourceview5::StyleScheme> {
+	let manager = sourceview5::StyleSchemeManager::default();
+	let scheme = manager
+		.scheme(&settings().string("code-style-scheme"))
+		.or_else(|| manager.scheme(DEFAULT_CODE_STYLE_SCHEME))?;
+	let (variant, other_variant) = if dark {
+		("dark", "dark-variant")
+	} else {
+		("light", "light-variant")
+	};
+	if scheme.metadata("variant").as_deref() == Some(variant) {
+		return Some(scheme);
+	}
+	scheme
+		.metadata(other_variant)
+		.and_then(|id| manager.scheme(&id))
+		.or(Some(scheme))
+}
+
+/// The code color schemes to choose from, as identifiers and names: one per
+/// pair of light and dark variants.
+pub fn code_style_schemes() -> Vec<(String, String)> {
+	let manager = sourceview5::StyleSchemeManager::default();
+	let mut schemes: Vec<(String, String)> = manager
+		.scheme_ids()
+		.iter()
+		.filter_map(|id| manager.scheme(id))
+		.filter(|scheme| {
+			// Dark variants are listed through their light variant.
+			scheme.metadata("variant").as_deref() != Some("dark")
+				|| scheme.metadata("light-variant").is_none()
+		})
+		.map(|scheme| (scheme.id().to_string(), scheme.name().to_string()))
+		.collect();
+	schemes.sort_by_key(|(_, name)| name.to_lowercase());
+	schemes
 }
 
 /// Margin around the text of documents, in pixels.

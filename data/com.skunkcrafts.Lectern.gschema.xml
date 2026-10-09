@@ -23,6 +23,11 @@
 			<summary>Color scheme</summary>
 			<description>Whether to follow the system style, or to always use a light or dark style.</description>
 		</key>
+		<key name="code-style-scheme" type="s">
+			<default>"Adwaita"</default>
+			<summary>Code color scheme</summary>
+			<description>Identifier of the GtkSourceView style scheme of code blocks. Its light or dark variant is used according to the style.</description>
+		</key>
 		<key name="margin" type="i">
 			<range min="0" max="400"/>
 			<default>24</default>

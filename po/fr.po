@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 21:56+0200\n"
+"POT-Creation-Date: 2026-10-09 23:11+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -56,48 +56,62 @@ msgstr ""
 "Indique s’il faut suivre le style du système, ou toujours utiliser un style "
 "clair ou sombre."
 
+#: data/com.skunkcrafts.Lectern.gschema.xml:28
+msgid "Code color scheme"
+msgstr "Jeu de couleurs du code"
+
 #: data/com.skunkcrafts.Lectern.gschema.xml:29
-#: data/resources/ui/preferences_dialog.blp:34
+msgid ""
+"Identifier of the GtkSourceView style scheme of code blocks. Its light or "
+"dark variant is used according to the style."
+msgstr ""
+"Identifiant du jeu de couleurs GtkSourceView des blocs de code. Sa variante "
+"claire ou sombre est utilisée selon le style."
+"Identifiant du jeu de couleurs GtkSourceView des blocs de code. Sa variante "
+"claire ou sombre est utilisée selon le style."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:34
+#: data/resources/ui/preferences_dialog.blp:38
 msgid "Margin"
 msgstr "Marge"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:30
+#: data/com.skunkcrafts.Lectern.gschema.xml:35
 msgid "Space between the window edges and the text, in pixels."
 msgstr "Espace entre les bords de la fenêtre et le texte, en pixels."
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:34
+#: data/com.skunkcrafts.Lectern.gschema.xml:39
 msgid "Whether to use the fonts of the system"
 msgstr "Indique s’il faut utiliser les polices du système"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:38
+#: data/com.skunkcrafts.Lectern.gschema.xml:43
 msgid "Document font"
 msgstr "Police du document"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:39
+#: data/com.skunkcrafts.Lectern.gschema.xml:44
 msgid "Font of the text, when not using the fonts of the system."
 msgstr "Police du texte, lorsque les polices du système ne sont pas utilisées."
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:43
+#: data/com.skunkcrafts.Lectern.gschema.xml:48
 msgid "Monospace font"
 msgstr "Police à chasse fixe"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:44
+#: data/com.skunkcrafts.Lectern.gschema.xml:49
 msgid "Font of the code, when not using the fonts of the system."
 msgstr "Police du code, lorsque les polices du système ne sont pas utilisées."
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:49
+#: data/com.skunkcrafts.Lectern.gschema.xml:54
 msgid "Zoom"
 msgstr "Zoom"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:50
+#: data/com.skunkcrafts.Lectern.gschema.xml:55
 msgid "Scale factor of the text of documents."
 msgstr "Facteur d’agrandissement du texte des documents."
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:54
+#: data/com.skunkcrafts.Lectern.gschema.xml:59
 msgid "Whether search matches case"
 msgstr "Indique si la recherche respecte la casse"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:58
+#: data/com.skunkcrafts.Lectern.gschema.xml:63
 msgid "Whether search only matches whole words"
 msgstr "Indique si la recherche ne trouve que des mots entiers"
 
@@ -133,24 +147,28 @@ msgstr "Clair"
 msgid "Dark"
 msgstr "Sombre"
 
-#: data/resources/ui/preferences_dialog.blp:35
+#: data/resources/ui/preferences_dialog.blp:34
+msgid "Code Colors"
+msgstr "Couleurs du code"
+
+#: data/resources/ui/preferences_dialog.blp:39
 msgid "Space on each side of the text, in pixels"
 msgstr "Espace de chaque côté du texte, en pixels"
 
-#: data/resources/ui/preferences_dialog.blp:47
+#: data/resources/ui/preferences_dialog.blp:51
 msgid "Fonts"
 msgstr "Polices"
 
-#: data/resources/ui/preferences_dialog.blp:50
+#: data/resources/ui/preferences_dialog.blp:54
 msgid "Use System Fonts"
 msgstr "Utiliser les polices du système"
 
-#: data/resources/ui/preferences_dialog.blp:54
-#: data/resources/ui/preferences_dialog.blp:62
+#: data/resources/ui/preferences_dialog.blp:58
+#: data/resources/ui/preferences_dialog.blp:66
 msgid "Document Font"
 msgstr "Police du document"
 
-#: data/resources/ui/preferences_dialog.blp:68 src/preferences_dialog.rs:102
+#: data/resources/ui/preferences_dialog.blp:72 src/preferences_dialog.rs:119
 msgid "Monospace Font"
 msgstr "Police à chasse fixe"
 
@@ -232,14 +250,15 @@ msgstr "[FICHIER…]"
 
 #: src/application.rs:123
 msgid "Read Markdown documents. Use “-” to read the standard input."
-msgstr "Lire des documents Markdown. Utilisez « - » pour lire l’entrée standard."
+msgstr ""
+"Lire des documents Markdown. Utilisez « - » pour lire l’entrée standard."
 
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
 #: src/application.rs:182
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
-#: src/widgets/code_block.rs:97
+#: src/widgets/code_block.rs:99
 msgid "Copy"
 msgstr "Copier"
 

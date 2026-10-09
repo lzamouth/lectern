@@ -14,6 +14,8 @@ mod imp {
 		#[template_child]
 		pub color_scheme_toggles: TemplateChild<adw::ToggleGroup>,
 		#[template_child]
+		pub code_scheme_row: TemplateChild<adw::ComboRow>,
+		#[template_child]
 		pub margin_row: TemplateChild<adw::SpinRow>,
 		#[template_child]
 		pub system_fonts_row: TemplateChild<adw::SwitchRow>,
@@ -89,6 +91,21 @@ impl LecternPreferencesDialog {
 				})
 				.build();
 		}
+
+		// Code color schemes, by name.
+		let schemes = appearance::code_style_schemes();
+		let names: Vec<&str> = schemes.iter().map(|(_, name)| name.as_str()).collect();
+		imp.code_scheme_row
+			.set_model(Some(&gtk::StringList::new(&names)));
+		let current = settings.string("code-style-scheme");
+		if let Some(index) = schemes.iter().position(|(id, _)| *id == current) {
+			imp.code_scheme_row.set_selected(index as u32);
+		}
+		imp.code_scheme_row.connect_selected_notify(move |row| {
+			if let Some((id, _)) = schemes.get(row.selected() as usize) {
+				let _ = appearance::settings().set_string("code-style-scheme", id);
+			}
+		});
 
 		// Only offer monospace fonts for code.
 		let filter = gtk::CustomFilter::new(|item| {
