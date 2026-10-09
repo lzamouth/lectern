@@ -1,0 +1,9 @@
+.code-block {
+	border-radius: 8px;
+	background-color: alpha(currentColor, 0.06);
+}
+
+.code-block textview,
+.code-block textview text {
+	background-color: transparent;
+}

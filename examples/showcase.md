@@ -80,11 +80,32 @@ Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy.<!-- a hidden comment -->
 
 ## Code
 
+Fenced code blocks are highlighted according to their language:
+
 ```rust
 fn main() {
-	println!("Hello, Lectern!");
+	let name = "Lectern";
+	// Long lines scroll horizontally instead of wrapping, which keeps the code readable even when the window is narrow.
+	println!("Hello, {name}!");
 }
 ```
+
+```python
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+```
+
+```sh
+meson setup build && meson compile -C build
+```
+
+A block without language, inside a list:
+
+1. Run:
+
+   ```
+   plain text block
+   ```
 
 ---
 

@@ -3,4 +3,5 @@ data/com.skunkcrafts.Lectern.gschema.xml
 data/com.skunkcrafts.Lectern.metainfo.xml.in
 data/resources/ui/window.blp
 src/application.rs
+src/widgets/code_block.rs
 src/window.rs

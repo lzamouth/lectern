@@ -1,6 +1,6 @@
 //! A read-only text view that renders a [`Document`] and handles its links.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -9,6 +9,7 @@ use gtk::glib::subclass::Signal;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib, graphene, pango};
 
+use super::CodeBlock;
 use crate::document::{Block, Document, List, ListKind, Span};
 
 const HEADING_SCALES: [f64; 6] = [2.0, 1.6, 1.35, 1.17, 1.0, 0.9];
@@ -34,6 +35,15 @@ struct Link {
 	start: i32,
 	end: i32,
 	url: String,
+}
+
+/// A widget embedded in the text at a child anchor.
+#[derive(Debug)]
+struct Embedded {
+	/// Buffer offset of the anchor.
+	offset: i32,
+	indent: i32,
+	widget: CodeBlock,
 }
 
 /// Graphics drawn below the text. Offsets are buffer character offsets.
@@ -62,6 +72,9 @@ mod imp {
 		pub(super) links: RefCell<Vec<Link>>,
 		pub(super) anchors: RefCell<HashMap<String, gtk::TextMark>>,
 		pub(super) decorations: RefCell<Vec<Decoration>>,
+		pub(super) embedded: RefCell<Vec<Embedded>>,
+		/// Width for which embedded widgets were last sized.
+		pub(super) embedded_width: Cell<i32>,
 		pub(super) style_handlers: RefCell<Vec<glib::SignalHandlerId>>,
 	}
 
@@ -97,9 +110,31 @@ mod imp {
 		}
 	}
 
-	impl WidgetImpl for MarkdownView {}
+	impl WidgetImpl for MarkdownView {
+		fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
+			self.parent_size_allocate(width, height, baseline);
+			if width != self.embedded_width.get() {
+				self.embedded_width.set(width);
+				// Resizing children while allocating would require another
+				// allocation: do it once this one is over.
+				let obj = self.obj();
+				glib::idle_add_local_once(glib::clone!(
+					#[weak]
+					obj,
+					move || obj.resize_embedded()
+				));
+			}
+		}
+	}
 
 	impl TextViewImpl for MarkdownView {
+		fn copy_clipboard(&self) {
+			let obj = self.obj();
+			if let Some(text) = obj.selected_text() {
+				obj.clipboard().set_text(&text);
+			}
+		}
+
 		fn snapshot_layer(&self, layer: gtk::TextViewLayer, snapshot: gtk::Snapshot) {
 			self.parent_snapshot_layer(layer, snapshot.clone());
 			if layer == gtk::TextViewLayer::BelowText {
@@ -126,6 +161,7 @@ impl MarkdownView {
 			links: Vec::new(),
 			anchors: HashMap::new(),
 			decorations: Vec::new(),
+			embedded: Vec::new(),
 		};
 		renderer.blocks(&document.blocks, Context::default());
 		renderer.finish();
@@ -133,6 +169,8 @@ impl MarkdownView {
 		let imp = self.imp();
 		imp.links.replace(renderer.links);
 		imp.decorations.replace(renderer.decorations);
+		imp.embedded.replace(renderer.embedded);
+		self.resize_embedded();
 		let old_anchors = imp.anchors.replace(renderer.anchors);
 		for mark in old_anchors.values() {
 			buffer.delete_mark(mark);
@@ -290,14 +328,47 @@ impl MarkdownView {
 			.family("monospace")
 			.build());
 		add(gtk::TextTag::builder()
-			.name("code-block")
-			.family("monospace")
-			.wrap_mode(gtk::WrapMode::Char)
-			.build());
-		add(gtk::TextTag::builder()
 			.name("link")
 			.underline(pango::Underline::Single)
 			.build());
+	}
+
+	/// Width available for text, excluding the view margins.
+	fn text_width(&self) -> i32 {
+		self.width() - self.left_margin() - self.right_margin()
+	}
+
+	/// Makes embedded widgets as wide as the text.
+	fn resize_embedded(&self) {
+		let text_width = self.text_width();
+		if text_width <= 0 {
+			return;
+		}
+		for embedded in self.imp().embedded.borrow().iter() {
+			let width = (text_width - embedded.indent).max(1);
+			if embedded.widget.width_request() != width {
+				embedded.widget.set_size_request(width, -1);
+			}
+		}
+	}
+
+	/// The selected text, with embedded widgets replaced by their text.
+	fn selected_text(&self) -> Option<String> {
+		let buffer = self.buffer();
+		let (start, end) = buffer.selection_bounds()?;
+		let embedded = self.imp().embedded.borrow();
+		let mut text = String::new();
+		for (offset, character) in (start.offset()..).zip(buffer.slice(&start, &end, true).chars())
+		{
+			if character != '\u{fffc}' {
+				text.push(character);
+				continue;
+			}
+			if let Some(embedded) = embedded.iter().find(|embedded| embedded.offset == offset) {
+				text.push_str(&embedded.widget.text());
+			}
+		}
+		Some(text)
 	}
 
 	/// Returns the tag with the given name, creating it with `build` if needed.
@@ -324,7 +395,7 @@ impl MarkdownView {
 			foreground.blue(),
 			foreground.alpha() * 0.25,
 		);
-		let text_width = self.visible_rect().width() - self.left_margin() - self.right_margin();
+		let text_width = self.text_width();
 
 		for decoration in decorations.iter() {
 			match *decoration {
@@ -379,7 +450,6 @@ impl MarkdownView {
 
 		let code_background = gdk::RGBA::new(0.5, 0.5, 0.5, 0.15);
 		tag("code").set_background_rgba(Some(&code_background));
-		tag("code-block").set_paragraph_background_rgba(Some(&code_background));
 		tag("link")
 			.set_foreground_rgba(Some(&style_manager.accent_color().to_standalone_rgba(dark)));
 	}
@@ -412,6 +482,7 @@ struct Renderer<'a> {
 	links: Vec<Link>,
 	anchors: HashMap<String, gtk::TextMark>,
 	decorations: Vec<Decoration>,
+	embedded: Vec<Embedded>,
 }
 
 impl Renderer<'_> {
@@ -441,8 +512,15 @@ impl Renderer<'_> {
 				self.spans(content, &[]);
 				self.end_leaf_block(start, context);
 			}
-			Block::Code { text, .. } => {
-				self.insert(text, &["code-block"]);
+			Block::Code { info, text } => {
+				let widget = CodeBlock::new(text, info);
+				let anchor = self.buffer.create_child_anchor(&mut self.buffer.end_iter());
+				self.view.add_child_at_anchor(&widget, &anchor);
+				self.embedded.push(Embedded {
+					offset: start,
+					indent: context.indent,
+					widget,
+				});
 				self.end_leaf_block(start, context);
 			}
 			Block::Quote(blocks) => {

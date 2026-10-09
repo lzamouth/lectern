@@ -24,6 +24,7 @@ mod imp {
 	impl ApplicationImpl for LecternApplication {
 		fn startup(&self) {
 			self.parent_startup();
+			sourceview5::init();
 			let app = self.obj();
 			app.setup_actions();
 			app.setup_accels();

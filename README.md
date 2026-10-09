@@ -11,14 +11,14 @@ libadwaita. Documents are rendered with GTK widgets: no web engine, no HTML.
 
 - Rust (stable) and Cargo
 - Meson ≥ 1.4 and Ninja
-- GTK ≥ 4.18, libadwaita ≥ 1.7
+- GTK ≥ 4.18, libadwaita ≥ 1.7, GtkSourceView ≥ 5.10
 - blueprint-compiler, gettext, desktop-file-utils, appstream
 
 On Debian/Ubuntu:
 
 ```sh
-sudo apt install cargo meson libgtk-4-dev libadwaita-1-dev blueprint-compiler \
-	gettext desktop-file-utils appstream
+sudo apt install cargo meson libgtk-4-dev libadwaita-1-dev libgtksourceview-5-dev \
+	blueprint-compiler gettext desktop-file-utils appstream
 ```
 
 ### Build and run from the source tree

@@ -18,6 +18,7 @@ localedir = prefix / get_option('localedir')
 
 dependency('gtk4', version: '>= 4.18')
 dependency('libadwaita-1', version: '>= 1.7')
+dependency('gtksourceview-5', version: '>= 5.10')
 find_program('blueprint-compiler')
 
 subdir('data')
