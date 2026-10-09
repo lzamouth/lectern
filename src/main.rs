@@ -1,5 +1,9 @@
 mod application;
 mod config;
+#[cfg(debug_assertions)]
+mod devtools;
+mod document;
+mod widgets;
 mod window;
 
 use gettextrs::{LocaleCategory, bind_textdomain_codeset, bindtextdomain, setlocale, textdomain};

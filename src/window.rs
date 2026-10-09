@@ -7,6 +7,10 @@ use gtk::{gio, glib};
 
 use crate::application::LecternApplication;
 use crate::config;
+use crate::document;
+use crate::widgets::MarkdownView;
+
+const MARKDOWN_EXTENSIONS: [&str; 5] = ["md", "markdown", "mdown", "mkd", "mkdn"];
 
 mod imp {
 	use super::*;
@@ -21,7 +25,7 @@ mod imp {
 		#[template_child]
 		pub stack: TemplateChild<gtk::Stack>,
 		#[template_child]
-		pub text_view: TemplateChild<gtk::TextView>,
+		pub markdown_view: TemplateChild<MarkdownView>,
 		pub file: RefCell<Option<gio::File>>,
 		pub settings: OnceCell<gio::Settings>,
 	}
@@ -33,6 +37,7 @@ mod imp {
 		type ParentType = adw::ApplicationWindow;
 
 		fn class_init(klass: &mut Self::Class) {
+			MarkdownView::ensure_type();
 			klass.bind_template();
 			klass.install_action_async("win.open", None, |window, _, _| async move {
 				window.choose_file().await;
@@ -47,7 +52,13 @@ mod imp {
 	impl ObjectImpl for LecternWindow {
 		fn constructed(&self) {
 			self.parent_constructed();
-			self.obj().load_window_state();
+			let obj = self.obj();
+			obj.load_window_state();
+			self.markdown_view.connect_link_activated(glib::clone!(
+				#[weak]
+				obj,
+				move |_, url| obj.activate_link(url)
+			));
 		}
 	}
 
@@ -97,10 +108,12 @@ impl LecternWindow {
 		match file.load_contents_future().await {
 			Ok((bytes, _etag)) => {
 				let text = String::from_utf8_lossy(&bytes);
-				imp.text_view.buffer().set_text(&text);
+				imp.markdown_view.set_document(&document::parse(&text));
 				self.update_title(&file);
 				imp.file.replace(Some(file));
 				imp.stack.set_visible_child_name("document");
+				#[cfg(debug_assertions)]
+				crate::devtools::snapshot_if_requested(self);
 			}
 			Err(err) => {
 				let message = gettext("Unable to open “{name}”: {error}")
@@ -109,6 +122,52 @@ impl LecternWindow {
 				self.show_toast(&message);
 			}
 		}
+	}
+
+	fn activate_link(&self, url: &str) {
+		if let Some(anchor) = url.strip_prefix('#') {
+			self.imp().markdown_view.scroll_to_anchor(anchor);
+			return;
+		}
+
+		let target = match glib::Uri::peek_scheme(url) {
+			Some(scheme) if scheme != "file" => {
+				self.launch(gtk::UriLauncher::new(url).launch_future(Some(self)));
+				return;
+			}
+			Some(_) => gio::File::for_uri(url),
+			None => {
+				// Relative path, possibly followed by a fragment.
+				let path = url.split_once('#').map_or(url, |(path, _)| path);
+				let path = glib::Uri::unescape_string(path, None::<&str>)
+					.map_or_else(|| path.to_owned(), |path| path.to_string());
+				let Some(dir) = self.file().and_then(|file| file.parent()) else {
+					return;
+				};
+				dir.resolve_relative_path(path)
+			}
+		};
+
+		if is_markdown(&target) {
+			self.open_file(&target);
+		} else {
+			self.launch(gtk::FileLauncher::new(Some(&target)).launch_future(Some(self)));
+		}
+	}
+
+	/// Runs a launcher, reporting failures in a toast.
+	fn launch(&self, future: impl std::future::Future<Output = Result<(), glib::Error>> + 'static) {
+		glib::spawn_future_local(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			async move {
+				if let Err(err) = future.await
+					&& !err.matches(gtk::DialogError::Dismissed)
+				{
+					window.show_toast(err.message());
+				}
+			}
+		));
 	}
 
 	async fn choose_file(&self) {
@@ -174,6 +233,15 @@ impl LecternWindow {
 		let _ = settings.set_int("window-height", height);
 		let _ = settings.set_boolean("is-maximized", self.is_maximized());
 	}
+}
+
+fn is_markdown(file: &gio::File) -> bool {
+	file.path()
+		.and_then(|path| {
+			path.extension()
+				.map(|ext| ext.to_string_lossy().to_ascii_lowercase())
+		})
+		.is_some_and(|ext| MARKDOWN_EXTENSIONS.contains(&ext.as_str()))
 }
 
 fn display_name(file: &gio::File) -> String {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-09 17:06+0200\n"
+"POT-Creation-Date: 2026-10-09 17:21+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -53,7 +53,7 @@ msgstr ""
 "Lectern est un lecteur Markdown natif pour GNOME. Il affiche les documents "
 "CommonMark et GitHub Flavored Markdown avec des widgets GTK, sans moteur web."
 
-#: data/com.skunkcrafts.Lectern.metainfo.xml.in:36
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:39
 msgid "Initial development version."
 msgstr "Version de développement initiale."
 
@@ -77,27 +77,27 @@ msgstr "Choisissez un document à lire"
 msgid "_Open…"
 msgstr "_Ouvrir…"
 
-#: data/resources/ui/window.blp:83
+#: data/resources/ui/window.blp:75
 msgid "_New Window"
 msgstr "_Nouvelle fenêtre"
 
-#: data/resources/ui/window.blp:90
+#: data/resources/ui/window.blp:82
 msgid "_About Lectern"
 msgstr "À _propos de Lectern"
 
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-#: src/application.rs:106
+#: src/application.rs:108
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
-#: src/window.rs:106
+#: src/window.rs:119
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:116
+#: src/window.rs:175
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:125
+#: src/window.rs:184
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"

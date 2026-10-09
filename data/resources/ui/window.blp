@@ -61,15 +61,7 @@ template $LecternWindow: Adw.ApplicationWindow {
 					child: Gtk.ScrolledWindow {
 						hscrollbar-policy: never;
 
-						child: Gtk.TextView text_view {
-							editable: false;
-							cursor-visible: false;
-							wrap-mode: word_char;
-							top-margin: 24;
-							bottom-margin: 24;
-							left-margin: 24;
-							right-margin: 24;
-						};
+						child: $LecternMarkdownView markdown_view {};
 					};
 				}
 			};
