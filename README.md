@@ -79,7 +79,7 @@ The manifest is in `build-aux/`. It needs `flatpak-builder`, the GNOME 51 SDK
 and the Rust extension:
 
 ```sh
-flatpak install --user flathub org.gnome.Sdk//51 org.freedesktop.Sdk.Extension.rust-stable//26.08
+flatpak install flathub org.gnome.Sdk//51 org.freedesktop.Sdk.Extension.rust-stable//26.08
 flatpak-builder --user --install --force-clean build-flatpak build-aux/com.skunkcrafts.Lectern.json
 flatpak run com.skunkcrafts.Lectern
 ```
