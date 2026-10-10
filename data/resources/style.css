@@ -1,11 +1,7 @@
+/* The background of code blocks comes from their color scheme. */
 .code-block {
 	border-radius: 8px;
-	background-color: alpha(currentColor, 0.06);
-}
-
-.code-block textview,
-.code-block textview text {
-	background-color: transparent;
+	border: 1px solid alpha(currentColor, 0.12);
 }
 
 .markdown-table textview,
