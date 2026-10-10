@@ -2,3 +2,5 @@
 /_build/
 /target/
 /po/lectern.pot
+/.flatpak-builder/
+/build-flatpak/

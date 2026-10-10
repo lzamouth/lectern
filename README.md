@@ -73,6 +73,20 @@ meson compile -C build
 sudo meson install -C build
 ```
 
+### Flatpak
+
+The manifest is in `build-aux/`. It needs `flatpak-builder`, the GNOME 51 SDK
+and the Rust extension:
+
+```sh
+flatpak install --user flathub org.gnome.Sdk//51 org.freedesktop.Sdk.Extension.rust-stable//26.08
+flatpak-builder --user --install --force-clean build-flatpak build-aux/com.skunkcrafts.Lectern.json
+flatpak run com.skunkcrafts.Lectern
+```
+
+The application reads the file system without being able to write to it,
+so that relative images and links work and changed files are reloaded.
+
 ### Tests
 
 ```sh

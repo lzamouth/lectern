@@ -1,0 +1,64 @@
+{
+	"id": "com.skunkcrafts.Lectern",
+	"runtime": "org.gnome.Platform",
+	"runtime-version": "51",
+	"sdk": "org.gnome.Sdk",
+	"sdk-extensions": [
+		"org.freedesktop.Sdk.Extension.rust-stable"
+	],
+	"command": "lectern",
+	"finish-args": [
+		"--share=ipc",
+		"--socket=wayland",
+		"--device=dri",
+		"--filesystem=host:ro",
+		"--filesystem=xdg-data/recently-used.xbel"
+	],
+	"build-options": {
+		"append-path": "/usr/lib/sdk/rust-stable/bin",
+		"build-args": [
+			"--share=network"
+		],
+		"env": {
+			"CARGO_HOME": "/run/build/lectern/cargo"
+		}
+	},
+	"cleanup": [
+		"/include",
+		"/lib/pkgconfig",
+		"/share/man"
+	],
+	"modules": [
+		{
+			"name": "blueprint-compiler",
+			"buildsystem": "meson",
+			"cleanup": [
+				"*"
+			],
+			"sources": [
+				{
+					"type": "git",
+					"url": "https://gitlab.gnome.org/GNOME/blueprint-compiler.git",
+					"tag": "v0.22.2",
+					"commit": "ed35ac74de0c1bb1f5e852410b97edd1f08904c9"
+				}
+			]
+		},
+		{
+			"name": "lectern",
+			"buildsystem": "meson",
+			"sources": [
+				{
+					"type": "dir",
+					"path": "..",
+					"skip": [
+						"build",
+						"target",
+						".flatpak-builder",
+						"build-flatpak"
+					]
+				}
+			]
+		}
+	]
+}
