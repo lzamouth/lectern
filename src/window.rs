@@ -505,6 +505,10 @@ impl LecternWindow {
 			);
 		}
 
+		// The entry is not a direct child of the bar: connect it for typing
+		// to start searching, and Escape to stop.
+		imp.search_bar.connect_entry(&*imp.search_entry);
+
 		// Typing starts searching, also after clicking the search button.
 		imp.search_button.connect_toggled(glib::clone!(
 			#[weak(rename_to = window)]
