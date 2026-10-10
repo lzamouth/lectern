@@ -93,11 +93,14 @@ template $LecternWindow: Adw.ApplicationWindow {
 						}
 
 						Gtk.Label match_label {
-							valign: center;
+							// A fixed width keeps the label from moving while typing.
+							width-chars: 10;
+							xalign: 1;
 
 							styles [
 								"dimmed",
 								"numeric",
+								"match-count",
 							]
 						}
 

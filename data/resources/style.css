@@ -12,3 +12,8 @@
 .markdown-table textview text {
 	background-color: transparent;
 }
+
+/* Keep the glyphs inside the label bounds, so that they are redrawn. */
+.match-count {
+	padding: 4px 0;
+}
