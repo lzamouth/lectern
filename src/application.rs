@@ -110,6 +110,11 @@ impl LecternApplication {
 			)
 			.property("resource-base-path", "/com/skunkcrafts/Lectern")
 			.build();
+		// Snapshots must not be taken by an already running instance.
+		#[cfg(debug_assertions)]
+		if std::env::var_os("LECTERN_SNAPSHOT").is_some() {
+			app.set_flags(app.flags() | gio::ApplicationFlags::NON_UNIQUE);
+		}
 		app.add_main_option(
 			"version",
 			glib::Char::from(b'v'),

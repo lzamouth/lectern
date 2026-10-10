@@ -15,4 +15,6 @@ else
 	"$cargo" build --manifest-path "$manifest" --target-dir "$target_dir"
 fi
 
-cp "$target_dir/$profile/lectern" "$output"
+# Replace the binary by renaming, which works even while it is running.
+cp "$target_dir/$profile/lectern" "$output.tmp"
+mv -f "$output.tmp" "$output"

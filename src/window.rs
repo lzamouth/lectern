@@ -505,6 +505,17 @@ impl LecternWindow {
 			);
 		}
 
+		// Typing starts searching, also after clicking the search button.
+		imp.search_button.connect_toggled(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |button| {
+				if button.is_active() {
+					window.imp().search_entry.grab_focus();
+				}
+			}
+		));
+
 		imp.search_entry.connect_search_changed(glib::clone!(
 			#[weak(rename_to = window)]
 			self,
