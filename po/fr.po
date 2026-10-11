@@ -108,9 +108,8 @@ msgid "Scale factor of the text of documents."
 msgstr "Facteur d’agrandissement du texte des documents."
 
 #: data/com.skunkcrafts.Lectern.gschema.xml:59
-#, fuzzy
 msgid "Whether to show the outline of documents"
-msgstr "Facteur d’agrandissement du texte des documents."
+msgstr "Indique s’il faut afficher le plan des documents"
 
 #: data/com.skunkcrafts.Lectern.gschema.xml:63
 msgid "Whether search matches case"
