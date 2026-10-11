@@ -4,3 +4,5 @@
 /po/lectern.pot
 /.flatpak-builder/
 /build-flatpak/
+/build-flatpak-repo/
+/dist/
