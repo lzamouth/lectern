@@ -11,6 +11,7 @@ use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib, graphene, gsk, pango};
 
 use super::MarkdownView;
+use crate::appearance;
 use crate::document::{self, Alignment, Span, Style};
 
 /// Width of the gaps between columns, holding the column lines.
@@ -265,7 +266,7 @@ impl TableGrid {
 				cell.connect_link_activated(move |_, url| callback(url));
 				cell.set_parent(self);
 
-				let width = text_width(&cell, &document::plain_text(&content), header);
+				let width = spans_width(&cell, &content);
 				*natural_width = (*natural_width).max(width + 2 * CELL_PADDING_X);
 				row_cells.push(cell);
 			}
@@ -489,14 +490,33 @@ fn justification(alignment: Alignment) -> gtk::Justification {
 	}
 }
 
-/// Width of `text` on a single line, in the font of `widget`.
-fn text_width(widget: &impl IsA<gtk::Widget>, text: &str, bold: bool) -> i32 {
-	let layout = widget.create_pango_layout(Some(text));
-	if bold {
-		let attributes = pango::AttrList::new();
-		attributes.insert(pango::AttrInt::new_weight(pango::Weight::Bold));
-		layout.set_attributes(Some(&attributes));
+/// Width of `spans` without wrapping, in the font of `widget` and with the
+/// styles of the spans.
+fn spans_width(widget: &impl IsA<gtk::Widget>, spans: &[Span]) -> i32 {
+	let monospace = appearance::monospace_font().family();
+	let mut text = String::new();
+	let attributes = pango::AttrList::new();
+	for span in spans {
+		let start = text.len() as u32;
+		text.push_str(&span.text);
+		let end = text.len() as u32;
+		let add = |mut attribute: pango::Attribute| {
+			attribute.set_start_index(start);
+			attribute.set_end_index(end);
+			attributes.insert(attribute);
+		};
+		if span.style.strong {
+			add(pango::AttrInt::new_weight(pango::Weight::Bold).into());
+		}
+		if span.style.emphasis {
+			add(pango::AttrInt::new_style(pango::Style::Italic).into());
+		}
+		if span.style.code {
+			add(pango::AttrString::new_family(monospace.as_deref().unwrap_or("monospace")).into());
+		}
 	}
+	let layout = widget.create_pango_layout(Some(&text));
+	layout.set_attributes(Some(&attributes));
 	layout.pixel_size().0 + 1
 }
 
