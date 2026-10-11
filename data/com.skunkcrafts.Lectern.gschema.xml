@@ -54,6 +54,10 @@
 			<summary>Zoom</summary>
 			<description>Scale factor of the text of documents.</description>
 		</key>
+		<key name="show-outline" type="b">
+			<default>false</default>
+			<summary>Whether to show the outline of documents</summary>
+		</key>
 		<key name="search-case-sensitive" type="b">
 			<default>false</default>
 			<summary>Whether search matches case</summary>

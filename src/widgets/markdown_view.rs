@@ -502,6 +502,15 @@ impl MarkdownView {
 		false
 	}
 
+	/// The vertical position of the heading with the given anchor, in the
+	/// coordinates of [`Self::scroll_position`].
+	pub fn anchor_position(&self, anchor: &str) -> Option<f64> {
+		let anchors = self.imp().anchors.borrow();
+		let mark = anchors.get(anchor)?;
+		let (y, _) = self.line_yrange(&self.buffer().iter_at_mark(mark));
+		Some(f64::from(y))
+	}
+
 	/// Scrolls to the heading with the given anchor. Returns whether it exists.
 	pub fn scroll_to_anchor(&self, anchor: &str) -> bool {
 		let anchors = self.imp().anchors.borrow();

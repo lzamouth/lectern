@@ -157,6 +157,47 @@ pub struct Image {
 	pub height: Option<i32>,
 }
 
+/// A heading of the document, for its outline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutlineItem {
+	pub level: u8,
+	pub text: String,
+	pub anchor: String,
+}
+
+impl Document {
+	/// The headings of the document, in order, including those nested in
+	/// quotes and lists.
+	pub fn outline(&self) -> Vec<OutlineItem> {
+		let mut items = Vec::new();
+		collect_outline(&self.blocks, &mut items);
+		items
+	}
+}
+
+fn collect_outline(blocks: &[Block], items: &mut Vec<OutlineItem>) {
+	for block in blocks {
+		match block {
+			Block::Heading {
+				level,
+				anchor,
+				content,
+			} => items.push(OutlineItem {
+				level: *level,
+				text: plain_text(content).replace('\n', " "),
+				anchor: anchor.clone(),
+			}),
+			Block::Quote(blocks) | Block::Alert { blocks, .. } => collect_outline(blocks, items),
+			Block::List(list) => {
+				for item in &list.items {
+					collect_outline(&item.blocks, items);
+				}
+			}
+			_ => {}
+		}
+	}
+}
+
 /// Concatenated text of spans.
 pub fn plain_text(spans: &[Span]) -> String {
 	spans.iter().map(|span| span.text.as_str()).collect()

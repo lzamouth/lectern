@@ -6,10 +6,26 @@ template $LecternWindow: Adw.ApplicationWindow {
 	width-request: 360;
 	height-request: 294;
 
+	Adw.Breakpoint {
+		condition ("max-width: 640sp")
+
+		setters {
+			split_view.collapsed: true;
+		}
+	}
+
 	content: Adw.ToastOverlay toast_overlay {
 		child: Adw.ToolbarView {
 			[top]
 			Adw.HeaderBar {
+				[start]
+				Gtk.ToggleButton outline_button {
+					visible: false;
+					icon-name: "sidebar-show-symbolic";
+					tooltip-text: _("Outline");
+					action-name: "win.show-outline";
+				}
+
 				[start]
 				Gtk.Box navigation_box {
 					styles [
@@ -203,10 +219,25 @@ template $LecternWindow: Adw.ApplicationWindow {
 				Gtk.StackPage {
 					name: "document";
 
-					child: Gtk.ScrolledWindow {
-						hscrollbar-policy: never;
+					child: Adw.OverlaySplitView split_view {
+						min-sidebar-width: 200;
+						max-sidebar-width: 300;
 
-						child: $LecternMarkdownView markdown_view {};
+						sidebar: Gtk.ScrolledWindow {
+							hscrollbar-policy: never;
+
+							child: Gtk.ListBox outline_list {
+								styles [
+									"navigation-sidebar",
+								]
+							};
+						};
+
+						content: Gtk.ScrolledWindow {
+							hscrollbar-policy: never;
+
+							child: $LecternMarkdownView markdown_view {};
+						};
 					};
 				}
 			};

@@ -41,6 +41,11 @@ pub struct HistoryEntry {
 	scroll: f64,
 }
 
+/// Indentation of each heading level in the outline, in pixels.
+const OUTLINE_INDENT: i32 = 12;
+/// Distance from the top of the view under which a heading is considered read.
+const CURRENT_HEADING_MARGIN: f64 = 48.0;
+
 /// Delay before reloading a changed file, to let editors finish saving it.
 const RELOAD_DELAY: Duration = Duration::from_millis(250);
 
@@ -58,6 +63,12 @@ mod imp {
 		pub stack: TemplateChild<gtk::Stack>,
 		#[template_child]
 		pub markdown_view: TemplateChild<MarkdownView>,
+		#[template_child]
+		pub outline_button: TemplateChild<gtk::ToggleButton>,
+		#[template_child]
+		pub split_view: TemplateChild<adw::OverlaySplitView>,
+		#[template_child]
+		pub outline_list: TemplateChild<gtk::ListBox>,
 		#[template_child]
 		pub navigation_box: TemplateChild<gtk::Box>,
 		#[template_child]
@@ -85,6 +96,8 @@ mod imp {
 		pub base_dir: RefCell<Option<gio::File>>,
 		/// Documents to go back and forward to, the next one last.
 		pub back: RefCell<Vec<HistoryEntry>>,
+		/// Headings listed in the outline, in the order of its rows.
+		pub outline: RefCell<Vec<document::OutlineItem>>,
 		pub forward: RefCell<Vec<HistoryEntry>>,
 		pub rendering_handlers: RefCell<Vec<glib::SignalHandlerId>>,
 		pub rerender_source: RefCell<Option<glib::SourceId>>,
@@ -161,6 +174,7 @@ mod imp {
 			obj.setup_drop_target();
 			obj.setup_zoom_on_scroll();
 			obj.setup_mouse_navigation();
+			obj.setup_outline();
 			obj.update_navigation();
 			let handlers = appearance::connect_rendering_changed(glib::clone!(
 				#[weak]
@@ -456,6 +470,108 @@ impl LecternWindow {
 		imp.empty_recent_clamp.set_visible(!files.is_empty());
 	}
 
+	fn setup_outline(&self) {
+		let imp = self.imp();
+		self.add_action(&gio::PropertyAction::new(
+			"show-outline",
+			&*imp.split_view,
+			"show-sidebar",
+		));
+		self.settings()
+			.bind("show-outline", &*imp.split_view, "show-sidebar")
+			.build();
+
+		let placeholder = gtk::Label::builder()
+			.label(gettext("No Headings"))
+			.margin_top(12)
+			.margin_bottom(12)
+			.css_classes(["dimmed"])
+			.build();
+		imp.outline_list.set_placeholder(Some(&placeholder));
+
+		imp.outline_list.connect_row_activated(glib::clone!(
+			#[weak(rename_to = window)]
+			self,
+			move |_, row| {
+				let imp = window.imp();
+				let anchor = imp
+					.outline
+					.borrow()
+					.get(row.index() as usize)
+					.map(|item| item.anchor.clone());
+				if let Some(anchor) = anchor {
+					imp.markdown_view.scroll_to_anchor(&anchor);
+				}
+				// The outline covers the document when the window is narrow.
+				if imp.split_view.is_collapsed() {
+					imp.split_view.set_show_sidebar(false);
+				}
+			}
+		));
+
+		if let Some(adjustment) = imp.markdown_view.vadjustment() {
+			adjustment.connect_value_changed(glib::clone!(
+				#[weak(rename_to = window)]
+				self,
+				move |_| window.highlight_current_heading()
+			));
+			// The positions of the headings are only known once laid out, which
+			// changes the size of the document.
+			adjustment.connect_changed(glib::clone!(
+				#[weak(rename_to = window)]
+				self,
+				move |_| window.highlight_current_heading()
+			));
+		}
+	}
+
+	fn update_outline(&self, document: &document::Document) {
+		let imp = self.imp();
+		let items = document.outline();
+		imp.outline_list.remove_all();
+		// Indent relative to the highest level of the document.
+		let top_level = items.iter().map(|item| item.level).min().unwrap_or(1);
+		for item in &items {
+			let label = gtk::Label::builder()
+				.label(&item.text)
+				.xalign(0.0)
+				.ellipsize(gtk::pango::EllipsizeMode::End)
+				.tooltip_text(&item.text)
+				.margin_start(i32::from(item.level - top_level) * OUTLINE_INDENT)
+				.build();
+			if item.level == top_level {
+				label.add_css_class("heading");
+			}
+			imp.outline_list.append(&label);
+		}
+		imp.outline.replace(items);
+		self.highlight_current_heading();
+	}
+
+	/// Selects the heading of the section being read in the outline.
+	fn highlight_current_heading(&self) {
+		let imp = self.imp();
+		let view = &imp.markdown_view;
+		// A heading close to the top of the view starts the current section.
+		let top = view.scroll_position() + CURRENT_HEADING_MARGIN;
+		let current = imp
+			.outline
+			.borrow()
+			.iter()
+			.map(|item| view.anchor_position(&item.anchor))
+			.take_while(|position| position.is_some_and(|position| position <= top))
+			.count();
+		match current.checked_sub(1) {
+			Some(index) => {
+				let row = imp.outline_list.row_at_index(index as i32);
+				if imp.outline_list.selected_row() != row {
+					imp.outline_list.select_row(row.as_ref());
+				}
+			}
+			None => imp.outline_list.unselect_all(),
+		}
+	}
+
 	/// The back and forward buttons of the mouse navigate the history.
 	fn setup_mouse_navigation(&self) {
 		let click = gtk::GestureClick::new();
@@ -540,6 +656,7 @@ impl LecternWindow {
 		view.set_left_margin(margin);
 		view.set_right_margin(margin);
 		view.set_document(document, base_dir);
+		self.update_outline(document);
 		if let Some(state) = state {
 			view.restore_view_state(&state);
 			self.search(Some(current_match.unwrap_or_default()), false);
@@ -624,10 +741,11 @@ impl LecternWindow {
 		imp.reload_source.replace(Some(source));
 	}
 
-	/// Makes the search available, once a document is shown.
+	/// Makes the search and the outline available, once a document is shown.
 	fn enable_search(&self) {
 		let imp = self.imp();
 		imp.search_button.set_visible(true);
+		imp.outline_button.set_visible(true);
 		// Typing in the window starts searching.
 		imp.search_bar.set_key_capture_widget(Some(self));
 		self.action_set_enabled("win.find", true);

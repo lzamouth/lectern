@@ -11,6 +11,7 @@ libadwaita. Documents are rendered with GTK widgets: no web engine, no HTML.
   lists, block quotes, alerts, code blocks with syntax highlighting, tables,
   links, images, footnotes and horizontal rules
 - Table columns resizable with the mouse
+- Outline of the headings, and back and forward navigation between documents
 - Search in the whole document, including code blocks and tables, with case
   and whole word options
 - Automatic reload when the file changes on disk
@@ -31,6 +32,7 @@ cat README.md | lectern -
 | <kbd>Ctrl</kbd>+<kbd>O</kbd> | Open a file |
 | <kbd>Ctrl</kbd>+<kbd>N</kbd> | New window |
 | <kbd>Alt</kbd>+<kbd>←</kbd>, <kbd>Alt</kbd>+<kbd>→</kbd> | Back and forward, after following links |
+| <kbd>F9</kbd> | Show the outline |
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> | Search |
 | <kbd>Ctrl</kbd>+<kbd>G</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Next and previous match |
 | <kbd>Ctrl</kbd>+<kbd>+</kbd>, <kbd>Ctrl</kbd>+<kbd>-</kbd>, <kbd>Ctrl</kbd>+<kbd>0</kbd> | Zoom in, zoom out, reset zoom |

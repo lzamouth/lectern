@@ -537,6 +537,24 @@ mod tests {
 	}
 
 	#[test]
+	fn outline() {
+		let document = parse("# A\n\n> ## B\n\n- ### C\n");
+		let outline: Vec<_> = document
+			.outline()
+			.into_iter()
+			.map(|item| (item.level, item.text, item.anchor))
+			.collect();
+		assert_eq!(
+			outline,
+			[
+				(1, "A".to_owned(), "a".to_owned()),
+				(2, "B".to_owned(), "b".to_owned()),
+				(3, "C".to_owned(), "c".to_owned()),
+			]
+		);
+	}
+
+	#[test]
 	fn code_block_drops_final_newline() {
 		let document = parse("```rust\nfn main() {}\n```\n");
 		assert_eq!(
