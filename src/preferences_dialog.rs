@@ -18,6 +18,8 @@ mod imp {
 		#[template_child]
 		pub margin_row: TemplateChild<adw::SpinRow>,
 		#[template_child]
+		pub remote_images_row: TemplateChild<adw::SwitchRow>,
+		#[template_child]
 		pub system_fonts_row: TemplateChild<adw::SwitchRow>,
 		#[template_child]
 		pub document_font_button: TemplateChild<gtk::FontDialogButton>,
@@ -71,6 +73,9 @@ impl LecternPreferencesDialog {
 			.bind("color-scheme", &*imp.color_scheme_toggles, "active-name")
 			.build();
 		settings.bind("margin", &*imp.margin_row, "value").build();
+		settings
+			.bind("load-remote-images", &*imp.remote_images_row, "active")
+			.build();
 		settings
 			.bind("use-system-fonts", &*imp.system_fonts_row, "active")
 			.build();

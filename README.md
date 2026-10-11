@@ -46,13 +46,13 @@ cat README.md | lectern -
 
 - Rust (stable) and Cargo
 - Meson ≥ 1.4 and Ninja
-- GTK ≥ 4.18, libadwaita ≥ 1.7, GtkSourceView ≥ 5.10
+- GTK ≥ 4.18, libadwaita ≥ 1.7, GtkSourceView ≥ 5.10, libsoup ≥ 3.0
 - blueprint-compiler, gettext, desktop-file-utils, appstream
 
 On Debian/Ubuntu:
 
 ```sh
-sudo apt install cargo meson libgtk-4-dev libadwaita-1-dev libgtksourceview-5-dev \
+sudo apt install cargo meson libgtk-4-dev libadwaita-1-dev libgtksourceview-5-dev libsoup-3.0-dev \
 	blueprint-compiler gettext desktop-file-utils appstream
 ```
 
@@ -88,7 +88,8 @@ flatpak run com.skunkcrafts.Lectern
 ```
 
 The application reads the file system without being able to write to it,
-so that relative images and links work and changed files are reloaded.
+so that relative images and links work and changed files are reloaded. It
+only uses the network to load remote images, when enabled in the preferences.
 
 ### Tests
 

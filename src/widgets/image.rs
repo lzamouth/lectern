@@ -1,4 +1,5 @@
-//! An image of the document, loaded asynchronously from a local file.
+//! An image of the document, loaded asynchronously from a local file or,
+//! when enabled, from the web.
 
 use std::cell::{Cell, RefCell};
 
@@ -6,7 +7,15 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 
-use crate::document;
+use crate::{document, remote};
+
+/// Where an image comes from.
+#[derive(Debug, Clone)]
+pub enum Source {
+	File(gio::File),
+	/// An HTTP or HTTPS URL.
+	Remote(String),
+}
 
 mod imp {
 	use super::*;
@@ -42,11 +51,11 @@ glib::wrapper! {
 }
 
 impl Image {
-	/// Creates an image showing `file`, with the alternative text `alt`.
+	/// Creates an image showing `source`, with the alternative text `alt`.
 	///
 	/// `link_activated` is called with the link of the image when it is clicked.
 	pub fn new(
-		file: &gio::File,
+		source: Source,
 		image: &document::Image,
 		alt: &str,
 		link: Option<&str>,
@@ -87,7 +96,7 @@ impl Image {
 		}
 
 		obj.update_size();
-		obj.load(file.clone(), alt.to_owned());
+		obj.load(source, alt.to_owned());
 		obj
 	}
 
@@ -97,18 +106,23 @@ impl Image {
 		self.update_size();
 	}
 
-	fn load(&self, file: gio::File, alt: String) {
+	fn load(&self, source: Source, alt: String) {
 		glib::spawn_future_local(glib::clone!(
 			#[weak(rename_to = image)]
 			self,
 			async move {
-				// Decode in a thread: large images would freeze the interface.
-				let texture = match file.path() {
-					Some(path) => gio::spawn_blocking(move || gdk::Texture::from_filename(path))
-						.await
-						.ok()
-						.and_then(Result::ok),
-					None => None,
+				let texture = match source {
+					// Decode in a thread: large images would freeze the interface.
+					Source::File(file) => match file.path() {
+						Some(path) => {
+							gio::spawn_blocking(move || gdk::Texture::from_filename(path))
+								.await
+								.ok()
+								.and_then(Result::ok)
+						}
+						None => None,
+					},
+					Source::Remote(url) => remote::texture(&url).await,
 				};
 				match texture {
 					Some(texture) => image.set_texture(&texture),

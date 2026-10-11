@@ -6,6 +6,7 @@ mod devtools;
 mod document;
 mod preferences_dialog;
 mod recent;
+mod remote;
 mod search;
 mod uri;
 mod widgets;

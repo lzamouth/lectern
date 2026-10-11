@@ -10,11 +10,11 @@ use gtk::glib::subclass::Signal;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib, graphene, pango};
 
-use super::{CodeBlock, Image, Table};
+use super::{CodeBlock, Image, ImageSource, Table};
 use crate::appearance;
 use crate::document::{AlertKind, Block, Document, Footnote, List, ListKind, Span};
 use crate::search::{self, SearchOptions};
-use crate::uri;
+use crate::{remote, uri};
 
 const HEADING_SCALES: [f64; 6] = [2.0, 1.6, 1.35, 1.17, 1.0, 0.9];
 const HEADING_TAGS: [&str; 6] = ["h1", "h2", "h3", "h4", "h5", "h6"];
@@ -1149,9 +1149,16 @@ impl Renderer<'_> {
 			let mut tags = block_tags.to_vec();
 			let style = span.style;
 			if let Some(image) = &span.image {
-				if let Some(file) = uri::local_file(&image.url, self.base_dir) {
+				let source = if remote::is_remote(&image.url) {
+					appearance::settings()
+						.boolean("load-remote-images")
+						.then(|| ImageSource::Remote(image.url.clone()))
+				} else {
+					uri::local_file(&image.url, self.base_dir).map(ImageSource::File)
+				};
+				if let Some(source) = source {
 					let widget = Image::new(
-						&file,
+						source,
 						image,
 						&span.text,
 						span.link.as_deref(),
@@ -1160,7 +1167,8 @@ impl Renderer<'_> {
 					self.embed(widget.upcast(), span.text.clone(), indent);
 					continue;
 				}
-				// Remote images are not loaded: show the alternative text.
+				// Remote images are not loaded unless enabled: show the
+				// alternative text.
 				tags.push("emphasis");
 			}
 			if style.strong {

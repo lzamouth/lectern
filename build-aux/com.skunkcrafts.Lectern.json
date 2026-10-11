@@ -9,6 +9,7 @@
 	"command": "lectern",
 	"finish-args": [
 		"--share=ipc",
+		"--share=network",
 		"--socket=wayland",
 		"--device=dri",
 		"--filesystem=host:ro",

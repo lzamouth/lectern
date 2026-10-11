@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 08:25+0200\n"
+"POT-Creation-Date: 2026-10-11 08:59+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -99,23 +99,34 @@ msgstr "Police à chasse fixe"
 msgid "Font of the code, when not using the fonts of the system."
 msgstr "Police du code, lorsque les polices du système ne sont pas utilisées."
 
+#: data/com.skunkcrafts.Lectern.gschema.xml:53
+msgid "Whether to load remote images"
+msgstr "Indique s’il faut charger les images distantes"
+
 #: data/com.skunkcrafts.Lectern.gschema.xml:54
+msgid ""
+"Loading images from the web tells their servers that the document is read."
+msgstr ""
+"Charger des images depuis le web signale à leurs serveurs que le document "
+"est lu."
+
+#: data/com.skunkcrafts.Lectern.gschema.xml:59
 msgid "Zoom"
 msgstr "Zoom"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:55
+#: data/com.skunkcrafts.Lectern.gschema.xml:60
 msgid "Scale factor of the text of documents."
 msgstr "Facteur d’agrandissement du texte des documents."
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:59
+#: data/com.skunkcrafts.Lectern.gschema.xml:64
 msgid "Whether to show the outline of documents"
 msgstr "Indique s’il faut afficher le plan des documents"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:63
+#: data/com.skunkcrafts.Lectern.gschema.xml:68
 msgid "Whether search matches case"
 msgstr "Indique si la recherche respecte la casse"
 
-#: data/com.skunkcrafts.Lectern.gschema.xml:67
+#: data/com.skunkcrafts.Lectern.gschema.xml:72
 msgid "Whether search only matches whole words"
 msgstr "Indique si la recherche ne trouve que des mots entiers"
 
@@ -160,19 +171,31 @@ msgid "Space on each side of the text, in pixels"
 msgstr "Espace de chaque côté du texte, en pixels"
 
 #: data/resources/ui/preferences_dialog.blp:51
+msgid "Privacy"
+msgstr "Vie privée"
+
+#: data/resources/ui/preferences_dialog.blp:54
+msgid "Load Remote Images"
+msgstr "Charger les images distantes"
+
+#: data/resources/ui/preferences_dialog.blp:55
+msgid "Images from the web tell their servers that you read the document"
+msgstr "Les images venant du web signalent à leurs serveurs que vous lisez le document"
+
+#: data/resources/ui/preferences_dialog.blp:60
 msgid "Fonts"
 msgstr "Polices"
 
-#: data/resources/ui/preferences_dialog.blp:54
+#: data/resources/ui/preferences_dialog.blp:63
 msgid "Use System Fonts"
 msgstr "Utiliser les polices du système"
 
-#: data/resources/ui/preferences_dialog.blp:58
-#: data/resources/ui/preferences_dialog.blp:66
+#: data/resources/ui/preferences_dialog.blp:67
+#: data/resources/ui/preferences_dialog.blp:75
 msgid "Document Font"
 msgstr "Police du document"
 
-#: data/resources/ui/preferences_dialog.blp:72 src/preferences_dialog.rs:119
+#: data/resources/ui/preferences_dialog.blp:81 src/preferences_dialog.rs:124
 msgid "Monospace Font"
 msgstr "Police à chasse fixe"
 

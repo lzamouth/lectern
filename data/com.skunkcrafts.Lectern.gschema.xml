@@ -48,6 +48,11 @@
 			<summary>Monospace font</summary>
 			<description>Font of the code, when not using the fonts of the system.</description>
 		</key>
+		<key name="load-remote-images" type="b">
+			<default>false</default>
+			<summary>Whether to load remote images</summary>
+			<description>Loading images from the web tells their servers that the document is read.</description>
+		</key>
 		<key name="zoom" type="d">
 			<range min="0.5" max="3.0"/>
 			<default>1.0</default>

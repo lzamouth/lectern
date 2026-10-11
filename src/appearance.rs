@@ -7,8 +7,9 @@ use gtk::{gdk, gio, glib, pango};
 use crate::config;
 
 /// Keys of the settings affecting the rendering of documents.
-pub const RENDERING_KEYS: [&str; 6] = [
+pub const RENDERING_KEYS: [&str; 7] = [
 	"code-style-scheme",
+	"load-remote-images",
 	"margin",
 	"use-system-fonts",
 	"document-font",

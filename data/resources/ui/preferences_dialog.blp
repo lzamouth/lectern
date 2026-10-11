@@ -48,6 +48,15 @@ template $LecternPreferencesDialog: Adw.PreferencesDialog {
 		}
 
 		Adw.PreferencesGroup {
+			title: _("Privacy");
+
+			Adw.SwitchRow remote_images_row {
+				title: _("Load Remote Images");
+				subtitle: _("Images from the web tell their servers that you read the document");
+			}
+		}
+
+		Adw.PreferencesGroup {
 			title: _("Fonts");
 
 			Adw.SwitchRow system_fonts_row {
