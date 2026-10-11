@@ -68,6 +68,9 @@
 	</supports>
 	<translation type="gettext">lectern</translation>
 	<releases>
+		<release version="0.1.1" date="2026-10-11">
+			<url type="details">https://github.com/lzamouth/lectern/releases/tag/v0.1.1</url>
+		</release>
 		<release version="0.1.0" date="2026-10-11">
 			<description>
 				<p>First release of Lectern.</p>
