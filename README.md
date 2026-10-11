@@ -3,7 +3,7 @@
 Lectern is a native Markdown reader for GNOME, written in Rust with GTK 4 and
 libadwaita. Documents are rendered with GTK widgets: no web engine, no HTML.
 
-> **Status:** early development.
+![Lectern showing a document with its outline](data/screenshots/document.png)
 
 ## Features
 

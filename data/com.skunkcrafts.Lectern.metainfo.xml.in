@@ -11,7 +11,41 @@
 			Lectern is a native Markdown reader for GNOME. It renders CommonMark and
 			GitHub Flavored Markdown documents with GTK widgets, without a web engine.
 		</p>
+		<p>Features:</p>
+		<ul>
+			<li>Headings, emphasis, lists and task lists, quotes, alerts, footnotes and images</li>
+			<li>Code blocks with syntax highlighting and a choice of color schemes</li>
+			<li>Tables with columns resizable with the mouse</li>
+			<li>Search in the whole document, including code blocks and tables</li>
+			<li>Outline of the headings, and navigation between linked documents</li>
+			<li>Automatic reload when the file changes</li>
+			<li>Light and dark styles, and configurable fonts, margin and zoom</li>
+		</ul>
 	</description>
+	<screenshots>
+		<screenshot type="default">
+			<caption>A document with its outline</caption>
+			<image>https://raw.githubusercontent.com/lzamouth/lectern/v0.1.0/data/screenshots/document.png</image>
+		</screenshot>
+		<screenshot>
+			<caption>Tables and code blocks, in the dark style</caption>
+			<image>https://raw.githubusercontent.com/lzamouth/lectern/v0.1.0/data/screenshots/code.png</image>
+		</screenshot>
+		<screenshot>
+			<caption>Searching the document</caption>
+			<image>https://raw.githubusercontent.com/lzamouth/lectern/v0.1.0/data/screenshots/search.png</image>
+		</screenshot>
+	</screenshots>
+	<branding>
+		<color type="primary" scheme_preference="light">#e8d4bc</color>
+		<color type="primary" scheme_preference="dark">#63452c</color>
+	</branding>
+	<keywords>
+		<keyword>Markdown</keyword>
+		<keyword>Reader</keyword>
+		<keyword>Viewer</keyword>
+		<keyword>README</keyword>
+	</keywords>
 	<developer id="com.skunkcrafts">
 		<name translate="no">Skunkcrafts</name>
 	</developer>
@@ -34,9 +68,9 @@
 	</supports>
 	<translation type="gettext">lectern</translation>
 	<releases>
-		<release version="0.1.0" date="2026-10-09">
+		<release version="0.1.0" date="2026-10-11">
 			<description>
-				<p>Initial development version.</p>
+				<p>First release of Lectern.</p>
 			</description>
 		</release>
 	</releases>

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 10:23+0200\n"
+"POT-Creation-Date: 2026-10-11 10:40+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -138,9 +138,73 @@ msgstr ""
 "Lectern est un lecteur Markdown natif pour GNOME. Il affiche les documents "
 "CommonMark et GitHub Flavored Markdown avec des widgets GTK, sans moteur web."
 
-#: data/com.skunkcrafts.Lectern.metainfo.xml.in:39
-msgid "Initial development version."
-msgstr "Version de développement initiale."
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:14
+msgid "Features:"
+msgstr "Fonctionnalités :"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:16
+msgid ""
+"Headings, emphasis, lists and task lists, quotes, alerts, footnotes and "
+"images"
+msgstr ""
+"Titres, emphase, listes et listes de tâches, citations, alertes, notes de bas "
+"de page et images"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:17
+msgid "Code blocks with syntax highlighting and a choice of color schemes"
+msgstr "Blocs de code avec coloration syntaxique et choix du jeu de couleurs"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:18
+msgid "Tables with columns resizable with the mouse"
+msgstr "Tableaux aux colonnes redimensionnables à la souris"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:19
+msgid "Search in the whole document, including code blocks and tables"
+msgstr "Recherche dans tout le document, y compris les blocs de code et les tableaux"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:20
+msgid "Outline of the headings, and navigation between linked documents"
+msgstr "Plan des titres, et navigation entre documents liés"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:21
+msgid "Automatic reload when the file changes"
+msgstr "Rechargement automatique quand le fichier change"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:22
+msgid "Light and dark styles, and configurable fonts, margin and zoom"
+msgstr "Styles clair et sombre, polices, marge et zoom configurables"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:27
+msgid "A document with its outline"
+msgstr "Un document avec son plan"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:31
+msgid "Tables and code blocks, in the dark style"
+msgstr "Tableaux et blocs de code, en style sombre"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:35
+msgid "Searching the document"
+msgstr "Recherche dans le document"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:44
+msgid "Markdown"
+msgstr "Markdown"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:45
+msgid "Reader"
+msgstr "Lecteur"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:46
+msgid "Viewer"
+msgstr "Visionneuse"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:47
+msgid "README"
+msgstr "README"
+
+#: data/com.skunkcrafts.Lectern.metainfo.xml.in:73
+msgid "First release of Lectern."
+msgstr "Première version de Lectern."
 
 #: data/resources/ui/preferences_dialog.blp:7
 msgid "Appearance"
@@ -362,3 +426,6 @@ msgstr "Fichiers Markdown"
 #: src/window.rs:968
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"
+
+#~ msgid "Initial development version."
+#~ msgstr "Version de développement initiale."
