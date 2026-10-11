@@ -90,6 +90,8 @@ flatpak run com.skunkcrafts.Lectern
 The application reads the file system without being able to write to it,
 so that relative images and links work and changed files are reloaded. It
 only uses the network to load remote images, when enabled in the preferences.
+Its recent files are its own: the history of the desktop is not shared, since
+the sandbox cannot update it.
 
 ### Tests
 

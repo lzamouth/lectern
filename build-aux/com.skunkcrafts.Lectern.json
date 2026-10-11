@@ -12,8 +12,7 @@
 		"--share=network",
 		"--socket=wayland",
 		"--device=dri",
-		"--filesystem=host:ro",
-		"--filesystem=xdg-data/recently-used.xbel"
+		"--filesystem=host:ro"
 	],
 	"build-options": {
 		"append-path": "/usr/lib/sdk/rust-stable/bin",
