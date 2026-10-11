@@ -20,6 +20,18 @@ libadwaita. Documents are rendered with GTK widgets: no web engine, no HTML.
 - Text selection and copy, including code blocks and tables
 - Available in English and French
 
+## Installation
+
+Install Lectern from its Flatpak repository:
+
+```sh
+flatpak install --user https://lzamouth.github.io/lectern-flatpak/lectern.flatpakref
+```
+
+Updates are then installed like for any other Flatpak application, by GNOME
+Software or `flatpak update`. Each [release](https://github.com/lzamouth/lectern/releases)
+also provides a Flatpak bundle, which gets updates from the same repository.
+
 ## Usage
 
 ```sh
