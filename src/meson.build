@@ -1,6 +1,5 @@
 cargo = find_program('cargo')
 
-# flatpak-builder builds with debugoptimized.
 if get_option('buildtype') in ['release', 'minsize', 'debugoptimized']
 	cargo_profile = 'release'
 else

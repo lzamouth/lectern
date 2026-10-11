@@ -48,6 +48,9 @@
 		{
 			"name": "lectern",
 			"buildsystem": "meson",
+			"config-opts": [
+				"-Dbuildtype=release"
+			],
 			"sources": [
 				{
 					"type": "dir",
