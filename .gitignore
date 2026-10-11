@@ -6,3 +6,7 @@
 /build-flatpak/
 /build-flatpak-repo/
 /dist/
+
+# Never commit keys.
+*.asc
+*.gpg
