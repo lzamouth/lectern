@@ -4,6 +4,12 @@
 # Usage:
 #   build-aux/release.sh prepare VERSION
 #   build-aux/release.sh publish VERSION NOTES_FILE
+#
+# Publishing needs:
+#   LECTERN_GPG_KEY      the GPG key signing the Flatpak repository
+#   LECTERN_GPG_HOMEDIR  the GnuPG home of that key (optional)
+#   LECTERN_PAGES_DIR    a clone of the repository hosting the Flatpak
+#                        repository on GitHub Pages (default: ../lectern-flatpak)
 set -eu
 
 APP_ID=com.skunkcrafts.Lectern
@@ -13,6 +19,9 @@ METAINFO=data/$APP_ID.metainfo.xml.in
 RUNTIME_REPO=https://flathub.org/repo/flathub.flatpakrepo
 # Branch releases are made from.
 RELEASE_BRANCH=${RELEASE_BRANCH:-main}
+# Address of the Flatpak repository, hosted with GitHub Pages.
+PAGES_URL=${LECTERN_PAGES_URL:-https://lzamouth.github.io/lectern-flatpak}
+FLATPAK_BRANCH=stable
 
 die() {
 	echo "Error: $*" >&2
@@ -60,16 +69,38 @@ publish() {
 	[ "$(git describe --exact-match --tags 2>/dev/null)" = "v$version" ] ||
 		die "HEAD is not tagged v$version: run prepare first"
 
-	bundle=dist/lectern-$version.flatpak
+	gpg_key=${LECTERN_GPG_KEY:?set LECTERN_GPG_KEY to the key signing the Flatpak repository}
+	gpg_homedir=${LECTERN_GPG_HOMEDIR:-}
+	pages=${LECTERN_PAGES_DIR:-../lectern-flatpak}
+	[ -d "$pages/.git" ] || die "$pages is not a clone of the Flatpak repository"
+	[ -z "$(git -C "$pages" status --porcelain)" ] || die "$pages has changes"
+
 	mkdir -p dist
+	public_key=dist/lectern.gpg
+	gpg ${gpg_homedir:+--homedir "$gpg_homedir"} --export "$gpg_key" >"$public_key"
+	[ -s "$public_key" ] || die "GPG key $gpg_key not found"
+
+	# Build into the Flatpak repository, signed, then update its summary.
 	flatpak-builder --disable-rofiles-fuse --force-clean --state-dir=.flatpak-builder \
-		--repo=build-flatpak-repo build-flatpak "$MANIFEST"
-	flatpak build-bundle build-flatpak-repo "$bundle" "$APP_ID" --runtime-repo="$RUNTIME_REPO"
+		--default-branch="$FLATPAK_BRANCH" --repo="$pages/repo" \
+		--gpg-sign="$gpg_key" ${gpg_homedir:+--gpg-homedir="$gpg_homedir"} \
+		build-flatpak "$MANIFEST"
+	flatpak build-update-repo --generate-static-deltas --prune --prune-depth=10 \
+		--title=Lectern --default-branch="$FLATPAK_BRANCH" \
+		--gpg-sign="$gpg_key" ${gpg_homedir:+--gpg-homedir="$gpg_homedir"} \
+		"$pages/repo"
+	write_install_files "$pages" "$public_key"
+
+	# The bundle installs the repository too, for updates.
+	bundle=dist/lectern-$version.flatpak
+	flatpak build-bundle "$pages/repo" "$bundle" "$APP_ID" "$FLATPAK_BRANCH" \
+		--repo-url="$PAGES_URL/repo/" --runtime-repo="$RUNTIME_REPO" --gpg-keys="$public_key"
 
 	echo
-	echo "Ready to publish Lectern $version on https://github.com/$REPOSITORY:"
-	echo "  - push $RELEASE_BRANCH and tag v$version"
+	echo "Ready to publish Lectern $version:"
+	echo "  - push $RELEASE_BRANCH and tag v$version to https://github.com/$REPOSITORY"
 	echo "  - create the release with $notes and $bundle"
+	echo "  - push the Flatpak repository in $pages to $PAGES_URL"
 	printf "Publish? [y/N] "
 	read -r answer
 	[ "$answer" = y ] || [ "$answer" = Y ] || die "cancelled"
@@ -77,6 +108,53 @@ publish() {
 	git push origin "$RELEASE_BRANCH" "v$version"
 	gh release create "v$version" "$bundle" --repo "$REPOSITORY" \
 		--title "Lectern $version" --notes-file "$notes" --verify-tag
+	git -C "$pages" add -A
+	git -C "$pages" commit -q -m "Lectern $version"
+	git -C "$pages" push -q origin HEAD
+}
+
+# Writes the files installing Lectern and its repository, and the page
+# linking to them.
+write_install_files() {
+	pages=$1
+	key=$(base64 -w0 "$2")
+	cat >"$pages/lectern.flatpakref" <<-EOF
+		[Flatpak Ref]
+		Title=Lectern
+		Name=$APP_ID
+		Branch=$FLATPAK_BRANCH
+		Url=$PAGES_URL/repo/
+		SuggestRemoteName=lectern
+		Homepage=https://github.com/$REPOSITORY
+		Icon=$PAGES_URL/$APP_ID.svg
+		RuntimeRepo=$RUNTIME_REPO
+		IsRuntime=false
+		GPGKey=$key
+	EOF
+	cat >"$pages/lectern.flatpakrepo" <<-EOF
+		[Flatpak Repo]
+		Title=Lectern
+		Url=$PAGES_URL/repo/
+		Homepage=https://github.com/$REPOSITORY
+		Comment=Native Markdown reader for GNOME
+		Icon=$PAGES_URL/$APP_ID.svg
+		GPGKey=$key
+	EOF
+	cp "data/icons/hicolor/scalable/apps/$APP_ID.svg" "$pages/"
+	# GitHub Pages must serve the files as they are.
+	touch "$pages/.nojekyll"
+	cat >"$pages/index.html" <<-EOF
+		<!doctype html>
+		<html lang="en">
+		<meta charset="utf-8">
+		<title>Lectern</title>
+		<h1>Lectern</h1>
+		<p>Flatpak repository of <a href="https://github.com/$REPOSITORY">Lectern</a>, a native Markdown reader for GNOME.</p>
+		<p><a href="lectern.flatpakref">Install Lectern</a>, or run:</p>
+		<pre>flatpak install --user $PAGES_URL/lectern.flatpakref</pre>
+		<p>Updates are then installed like for any other Flatpak application.</p>
+		</html>
+	EOF
 }
 
 [ $# -ge 1 ] || die "usage: $0 prepare VERSION | publish VERSION NOTES_FILE"
