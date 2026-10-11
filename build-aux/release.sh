@@ -11,6 +11,8 @@ REPOSITORY=lzamouth/lectern
 MANIFEST=build-aux/$APP_ID.json
 METAINFO=data/$APP_ID.metainfo.xml.in
 RUNTIME_REPO=https://flathub.org/repo/flathub.flatpakrepo
+# Branch releases are made from.
+RELEASE_BRANCH=${RELEASE_BRANCH:-main}
 
 die() {
 	echo "Error: $*" >&2
@@ -22,7 +24,7 @@ check_version() {
 }
 
 check_clean_main() {
-	[ "$(git branch --show-current)" = main ] || die "not on the main branch"
+	[ "$(git branch --show-current)" = "$RELEASE_BRANCH" ] || die "not on the $RELEASE_BRANCH branch"
 	[ -z "$(git status --porcelain)" ] || die "the working tree has changes"
 }
 
@@ -66,13 +68,13 @@ publish() {
 
 	echo
 	echo "Ready to publish Lectern $version on https://github.com/$REPOSITORY:"
-	echo "  - push main and tag v$version"
+	echo "  - push $RELEASE_BRANCH and tag v$version"
 	echo "  - create the release with $notes and $bundle"
 	printf "Publish? [y/N] "
 	read -r answer
 	[ "$answer" = y ] || [ "$answer" = Y ] || die "cancelled"
 
-	git push origin main "v$version"
+	git push origin "$RELEASE_BRANCH" "v$version"
 	gh release create "v$version" "$bundle" --repo "$REPOSITORY" \
 		--title "Lectern $version" --notes-file "$notes" --verify-tag
 }
