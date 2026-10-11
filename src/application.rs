@@ -41,7 +41,7 @@ mod imp {
 					let window = LecternWindow::new(&app);
 					window.present();
 					#[cfg(debug_assertions)]
-					crate::devtools::snapshot_if_requested(&window);
+					crate::devtools::snapshot_if_requested(&window, |_| {});
 				}
 			}
 		}
@@ -162,6 +162,8 @@ impl LecternApplication {
 		self.set_accels_for_action("app.preferences", &["<Control>comma"]);
 		self.set_accels_for_action("win.open", &["<Control>o"]);
 		self.set_accels_for_action("win.find", &["<Control>f"]);
+		self.set_accels_for_action("win.go-back", &["<Alt>Left", "Back"]);
+		self.set_accels_for_action("win.go-forward", &["<Alt>Right", "Forward"]);
 		self.set_accels_for_action(
 			"win.zoom-in",
 			&["<Control>plus", "<Control>equal", "<Control>KP_Add"],

@@ -403,9 +403,20 @@ impl MarkdownView {
 			}
 		}
 
+		drop(embedded);
+		self.scroll_to_position(state.scroll);
+	}
+
+	/// The vertical scrolling position, in pixels.
+	pub fn scroll_position(&self) -> f64 {
+		self.vadjustment()
+			.map_or(0.0, |adjustment| adjustment.value())
+	}
+
+	/// Scrolls to a position returned by [`Self::scroll_position`].
+	pub fn scroll_to_position(&self, scroll: f64) {
 		// The layout is validated progressively: scroll at each frame until
 		// the position is reached and stays there.
-		let scroll = state.scroll;
 		let frames = Cell::new(0);
 		let reached = Cell::new(0);
 		self.add_tick_callback(move |view, _| {

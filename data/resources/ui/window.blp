@@ -11,6 +11,25 @@ template $LecternWindow: Adw.ApplicationWindow {
 			[top]
 			Adw.HeaderBar {
 				[start]
+				Gtk.Box navigation_box {
+					styles [
+						"linked",
+					]
+
+					Gtk.Button {
+						icon-name: "go-previous-symbolic";
+						tooltip-text: _("Back");
+						action-name: "win.go-back";
+					}
+
+					Gtk.Button {
+						icon-name: "go-next-symbolic";
+						tooltip-text: _("Forward");
+						action-name: "win.go-forward";
+					}
+				}
+
+				[start]
 				Adw.SplitButton {
 					icon-name: "document-open-symbolic";
 					tooltip-text: _("Open…");

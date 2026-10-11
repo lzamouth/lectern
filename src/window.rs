@@ -16,6 +16,31 @@ use crate::widgets::MarkdownView;
 
 const MARKDOWN_EXTENSIONS: [&str; 5] = ["md", "markdown", "mdown", "mkd", "mkdn"];
 
+/// Where to show a document when opening it.
+#[derive(Debug, Clone, PartialEq)]
+enum Position {
+	Top,
+	/// A scrolling position, in pixels.
+	Scroll(f64),
+	/// The heading with the given anchor.
+	Anchor(String),
+}
+
+/// How opening a document changes the history.
+#[derive(Debug, Clone, Copy)]
+enum Navigation {
+	New,
+	Back,
+	Forward,
+}
+
+/// A document of the history, with its reading position.
+#[derive(Debug, Clone)]
+pub struct HistoryEntry {
+	file: gio::File,
+	scroll: f64,
+}
+
 /// Delay before reloading a changed file, to let editors finish saving it.
 const RELOAD_DELAY: Duration = Duration::from_millis(250);
 
@@ -33,6 +58,8 @@ mod imp {
 		pub stack: TemplateChild<gtk::Stack>,
 		#[template_child]
 		pub markdown_view: TemplateChild<MarkdownView>,
+		#[template_child]
+		pub navigation_box: TemplateChild<gtk::Box>,
 		#[template_child]
 		pub recent_popover: TemplateChild<gtk::Popover>,
 		#[template_child]
@@ -56,6 +83,9 @@ mod imp {
 		pub document: RefCell<Option<document::Document>>,
 		/// Directory against which relative paths of the document are resolved.
 		pub base_dir: RefCell<Option<gio::File>>,
+		/// Documents to go back and forward to, the next one last.
+		pub back: RefCell<Vec<HistoryEntry>>,
+		pub forward: RefCell<Vec<HistoryEntry>>,
 		pub rendering_handlers: RefCell<Vec<glib::SignalHandlerId>>,
 		pub rerender_source: RefCell<Option<glib::SourceId>>,
 		pub file_monitor: RefCell<Option<gio::FileMonitor>>,
@@ -86,6 +116,8 @@ mod imp {
 					}
 				},
 			);
+			klass.install_action("win.go-back", None, |window, _, _| window.go_back());
+			klass.install_action("win.go-forward", None, |window, _, _| window.go_forward());
 			klass.install_action("win.zoom-in", None, |_, _, _| appearance::zoom(true));
 			klass.install_action("win.zoom-out", None, |_, _, _| appearance::zoom(false));
 			klass.install_action("win.zoom-reset", None, |_, _, _| appearance::reset_zoom());
@@ -128,6 +160,8 @@ mod imp {
 			obj.setup_recent_files();
 			obj.setup_drop_target();
 			obj.setup_zoom_on_scroll();
+			obj.setup_mouse_navigation();
+			obj.update_navigation();
 			let handlers = appearance::connect_rendering_changed(glib::clone!(
 				#[weak]
 				obj,
@@ -184,50 +218,123 @@ impl LecternWindow {
 		self.imp().file.borrow().clone()
 	}
 
+	/// Shows `file` in this window. The document shown before, if any, can be
+	/// gone back to.
 	pub fn open_file(&self, file: &gio::File) {
-		let file = file.clone();
+		self.navigate(file.clone(), Position::Top, Navigation::New);
+	}
+
+	/// Shows `file` at `position`, updating the history according to `navigation`
+	/// once it is loaded.
+	fn navigate(&self, file: gio::File, position: Position, navigation: Navigation) {
 		glib::spawn_future_local(glib::clone!(
 			#[weak(rename_to = window)]
 			self,
 			async move {
-				window.load_file(file, false).await;
+				let current = window.history_entry();
+				if !window.load_file(file, Some(position)).await {
+					return;
+				}
+				let imp = window.imp();
+				let mut back = imp.back.borrow_mut();
+				let mut forward = imp.forward.borrow_mut();
+				match navigation {
+					Navigation::New => {
+						back.extend(current);
+						forward.clear();
+					}
+					Navigation::Back => {
+						back.pop();
+						forward.extend(current);
+					}
+					Navigation::Forward => {
+						forward.pop();
+						back.extend(current);
+					}
+				}
+				drop((back, forward));
+				window.update_navigation();
 			}
 		));
 	}
 
-	/// Loads `file`. When `reload` is set, the file is the current one: the
-	/// reading position is kept, and errors are ignored since the file may be
-	/// in the middle of being saved.
-	async fn load_file(&self, file: gio::File, reload: bool) {
+	/// The document shown and its reading position, to come back to it.
+	fn history_entry(&self) -> Option<HistoryEntry> {
+		Some(HistoryEntry {
+			file: self.file()?,
+			scroll: self.imp().markdown_view.scroll_position(),
+		})
+	}
+
+	fn go_back(&self) {
+		let entry = self.imp().back.borrow().last().cloned();
+		if let Some(entry) = entry {
+			self.navigate(entry.file, Position::Scroll(entry.scroll), Navigation::Back);
+		}
+	}
+
+	fn go_forward(&self) {
+		let entry = self.imp().forward.borrow().last().cloned();
+		if let Some(entry) = entry {
+			self.navigate(
+				entry.file,
+				Position::Scroll(entry.scroll),
+				Navigation::Forward,
+			);
+		}
+	}
+
+	/// Shows the back and forward buttons when there is a history.
+	fn update_navigation(&self) {
 		let imp = self.imp();
+		let can_go_back = !imp.back.borrow().is_empty();
+		let can_go_forward = !imp.forward.borrow().is_empty();
+		self.action_set_enabled("win.go-back", can_go_back);
+		self.action_set_enabled("win.go-forward", can_go_forward);
+		imp.navigation_box
+			.set_visible(can_go_back || can_go_forward);
+	}
+
+	/// Loads `file`, at `position`, or reloads it when `position` is `None`:
+	/// the file is then the current one, the reading position is kept, and
+	/// errors are ignored since the file may be in the middle of being saved.
+	///
+	/// Returns whether the file was shown.
+	async fn load_file(&self, file: gio::File, position: Option<Position>) -> bool {
+		let imp = self.imp();
+		let reload = position.is_none();
 		let text = match file.load_contents_future().await {
 			Ok((bytes, _etag)) => String::from_utf8_lossy(&bytes).into_owned(),
-			Err(_) if reload => return,
+			Err(_) if reload => return false,
 			Err(err) => {
 				let message = gettext("Unable to open “{name}”: {error}")
 					.replace("{name}", &display_name(&file))
 					.replace("{error}", err.message());
 				self.show_toast(&message);
-				return;
+				return false;
 			}
 		};
 		// The user may have opened another file meanwhile.
 		if reload && self.file().as_ref() != Some(&file) {
-			return;
+			return false;
 		}
 
 		let document = document::parse(&text);
 		let base_dir = file.parent();
-		if reload {
-			self.show_document(&document, base_dir.as_ref(), true);
-			imp.document.replace(Some(document));
-		} else {
-			self.update_title(&file);
-			self.watch(&file);
-			recent::add(&file);
-			imp.file.replace(Some(file));
-			self.show_new_document(document, base_dir);
+		match position {
+			None => {
+				self.show_document(&document, base_dir.as_ref(), true);
+				imp.document.replace(Some(document));
+			}
+			Some(position) => {
+				self.update_title(&file);
+				self.watch(&file);
+				recent::add(&file);
+				imp.file.replace(Some(file));
+				self.show_new_document(document, base_dir, position);
+			}
 		}
+		true
 	}
 
 	/// Shows the text read from `stream`, such as the standard input.
@@ -263,20 +370,33 @@ impl LecternWindow {
 				imp.window_title.set_title(&title);
 				imp.window_title.set_subtitle("");
 				window.set_title(Some(&title));
-				window.show_new_document(document::parse(&text), base_dir);
+				window.show_new_document(document::parse(&text), base_dir, Position::Top);
 			}
 		));
 	}
 
 	/// Shows a document replacing the previous one, if any.
-	fn show_new_document(&self, document: document::Document, base_dir: Option<gio::File>) {
+	fn show_new_document(
+		&self,
+		document: document::Document,
+		base_dir: Option<gio::File>,
+		position: Position,
+	) {
 		let imp = self.imp();
 		self.show_document(&document, base_dir.as_ref(), false);
 		imp.document.replace(Some(document));
 		imp.base_dir.replace(base_dir);
 		imp.stack.set_visible_child_name("document");
 		self.enable_search();
-		self.search(Some(0), true);
+		// Only scroll to a search match when no position is requested.
+		self.search(Some(0), position == Position::Top);
+		match position {
+			Position::Top => {}
+			Position::Scroll(scroll) => imp.markdown_view.scroll_to_position(scroll),
+			Position::Anchor(anchor) => {
+				imp.markdown_view.scroll_to_anchor(&anchor);
+			}
+		}
 
 		#[cfg(debug_assertions)]
 		{
@@ -284,7 +404,12 @@ impl LecternWindow {
 				imp.search_bar.set_search_mode(true);
 				imp.search_entry.set_text(&query);
 			}
-			crate::devtools::snapshot_if_requested(self);
+			let window = self.downgrade();
+			crate::devtools::snapshot_if_requested(self, move |url| {
+				if let Some(window) = window.upgrade() {
+					window.activate_link(url);
+				}
+			});
 		}
 	}
 
@@ -329,6 +454,24 @@ impl LecternWindow {
 		imp.recent_stack
 			.set_visible_child_name(if files.is_empty() { "empty" } else { "list" });
 		imp.empty_recent_clamp.set_visible(!files.is_empty());
+	}
+
+	/// The back and forward buttons of the mouse navigate the history.
+	fn setup_mouse_navigation(&self) {
+		let click = gtk::GestureClick::new();
+		click.set_button(0);
+		click.connect_pressed(|gesture, _, _, _| {
+			let action = match gesture.current_button() {
+				8 => "win.go-back",
+				9 => "win.go-forward",
+				_ => return,
+			};
+			gesture.set_state(gtk::EventSequenceState::Claimed);
+			if let Some(widget) = gesture.widget() {
+				let _ = widget.activate_action(action, None);
+			}
+		});
+		self.add_controller(click);
 	}
 
 	/// Ctrl+scroll zooms.
@@ -472,7 +615,7 @@ impl LecternWindow {
 					window.imp().reload_source.take();
 					if let Some(file) = window.file() {
 						glib::spawn_future_local(async move {
-							window.load_file(file, true).await;
+							window.load_file(file, None).await;
 						});
 					}
 				}
@@ -627,7 +770,10 @@ impl LecternWindow {
 		};
 
 		if is_markdown(&target) {
-			self.open_file(&target);
+			let position = url.split_once('#').map_or(Position::Top, |(_, anchor)| {
+				Position::Anchor(anchor.to_owned())
+			});
+			self.navigate(target, position, Navigation::New);
 		} else {
 			self.launch(gtk::FileLauncher::new(Some(&target)).launch_future(Some(self)));
 		}
