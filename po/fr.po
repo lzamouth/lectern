@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: lectern\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-11 08:59+0200\n"
+"POT-Creation-Date: 2026-10-11 10:23+0200\n"
 "PO-Revision-Date: 2026-10-09 17:06+0200\n"
 "Last-Translator: Skunkcrafts\n"
 "Language-Team: French\n"
@@ -180,7 +180,9 @@ msgstr "Charger les images distantes"
 
 #: data/resources/ui/preferences_dialog.blp:55
 msgid "Images from the web tell their servers that you read the document"
-msgstr "Les images venant du web signalent à leurs serveurs que vous lisez le document"
+msgstr ""
+"Les images venant du web signalent à leurs serveurs que vous lisez le "
+"document"
 
 #: data/resources/ui/preferences_dialog.blp:60
 msgid "Fonts"
@@ -272,10 +274,14 @@ msgid "_New Window"
 msgstr "_Nouvelle fenêtre"
 
 #: data/resources/ui/window.blp:272
+msgid "Copy _Markdown Source"
+msgstr "Copier la source _Markdown"
+
+#: data/resources/ui/window.blp:279
 msgid "_Preferences"
 msgstr "_Préférences"
 
-#: data/resources/ui/window.blp:277
+#: data/resources/ui/window.blp:284
 msgid "_About Lectern"
 msgstr "À _propos de Lectern"
 
@@ -293,7 +299,7 @@ msgstr ""
 "Lire des documents Markdown. Utilisez « - » pour lire l’entrée standard."
 
 #. Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-#: src/application.rs:190
+#: src/application.rs:191
 msgid "translator-credits"
 msgstr "Skunkcrafts"
 
@@ -301,50 +307,58 @@ msgstr "Skunkcrafts"
 msgid "Copy"
 msgstr "Copier"
 
-#: src/widgets/markdown_view.rs:865
+#: src/widgets/markdown_view.rs:885
 msgid "Note"
 msgstr "Remarque"
 
-#: src/widgets/markdown_view.rs:866
+#: src/widgets/markdown_view.rs:886
 msgid "Tip"
 msgstr "Astuce"
 
-#: src/widgets/markdown_view.rs:867
+#: src/widgets/markdown_view.rs:887
 msgid "Important"
 msgstr "Important"
 
-#: src/widgets/markdown_view.rs:868
+#: src/widgets/markdown_view.rs:888
 msgid "Warning"
 msgstr "Avertissement"
 
-#: src/widgets/markdown_view.rs:869
+#: src/widgets/markdown_view.rs:889
 msgid "Caution"
 msgstr "Attention"
 
-#: src/window.rs:324
+#: src/window.rs:326
 msgid "Unable to open “{name}”: {error}"
 msgstr "Impossible d’ouvrir « {name} » : {error}"
 
-#: src/window.rs:383
+#: src/window.rs:385
 msgid "Standard Input"
 msgstr "Entrée standard"
 
-#: src/window.rs:485
+#: src/window.rs:497
 msgid "No Headings"
 msgstr "Aucun titre"
 
-#: src/window.rs:859
+#: src/window.rs:774
+msgid "Markdown source of the selection copied"
+msgstr "Source Markdown de la sélection copiée"
+
+#: src/window.rs:778
+msgid "Markdown source of the document copied"
+msgstr "Source Markdown du document copiée"
+
+#: src/window.rs:901
 msgid "{current} of {count}"
 msgstr "{current} sur {count}"
 
-#: src/window.rs:862
+#: src/window.rs:904
 msgid "No results"
 msgstr "Aucun résultat"
 
-#: src/window.rs:917
+#: src/window.rs:959
 msgid "Markdown Files"
 msgstr "Fichiers Markdown"
 
-#: src/window.rs:926
+#: src/window.rs:968
 msgid "Open Markdown File"
 msgstr "Ouvrir un fichier Markdown"

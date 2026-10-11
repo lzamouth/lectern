@@ -129,6 +129,7 @@ mod imp {
 					}
 				},
 			);
+			klass.install_action("win.copy-source", None, |window, _, _| window.copy_source());
 			klass.install_action("win.go-back", None, |window, _, _| window.go_back());
 			klass.install_action("win.go-forward", None, |window, _, _| window.go_forward());
 			klass.install_action("win.zoom-in", None, |_, _, _| appearance::zoom(true));
@@ -170,6 +171,7 @@ mod imp {
 			obj.load_window_state();
 			obj.setup_search();
 			obj.action_set_enabled("win.find", false);
+			obj.action_set_enabled("win.copy-source", false);
 			obj.setup_recent_files();
 			obj.setup_drop_target();
 			obj.setup_zoom_on_scroll();
@@ -419,9 +421,19 @@ impl LecternWindow {
 				imp.search_entry.set_text(&query);
 			}
 			let window = self.downgrade();
-			crate::devtools::snapshot_if_requested(self, move |url| {
-				if let Some(window) = window.upgrade() {
+			crate::devtools::snapshot_if_requested(self, move |step| {
+				let Some(window) = window.upgrade() else {
+					return;
+				};
+				if let Some(url) = step.strip_prefix("link:") {
 					window.activate_link(url);
+				} else if let Some((start, end)) = step
+					.strip_prefix("select:")
+					.and_then(|range| range.split_once('-'))
+					.and_then(|(start, end)| Some((start.parse().ok()?, end.parse().ok()?)))
+				{
+					let buffer = window.imp().markdown_view.buffer();
+					buffer.select_range(&buffer.iter_at_offset(start), &buffer.iter_at_offset(end));
 				}
 			});
 		}
@@ -741,9 +753,39 @@ impl LecternWindow {
 		imp.reload_source.replace(Some(source));
 	}
 
+	/// Copies the Markdown source of the selected blocks, or of the whole
+	/// document without a selection.
+	fn copy_source(&self) {
+		let imp = self.imp();
+		let Some(document) = imp.document.borrow().clone() else {
+			return;
+		};
+		let lines = imp
+			.markdown_view
+			.selected_leaves()
+			.and_then(|(first, last)| {
+				let (first_line, _) = *document.leaf_lines.get(first)?;
+				let (_, last_line) = *document.leaf_lines.get(last)?;
+				Some((first_line, last_line))
+			});
+		let (text, message) = match lines {
+			Some((first, last)) => (
+				document.source_lines(first, last),
+				gettext("Markdown source of the selection copied"),
+			),
+			None => (
+				document.source.clone(),
+				gettext("Markdown source of the document copied"),
+			),
+		};
+		self.clipboard().set_text(&text);
+		self.show_toast(&message);
+	}
+
 	/// Makes the search and the outline available, once a document is shown.
 	fn enable_search(&self) {
 		let imp = self.imp();
+		self.action_set_enabled("win.copy-source", true);
 		imp.search_button.set_visible(true);
 		imp.outline_button.set_visible(true);
 		// Typing in the window starts searching.

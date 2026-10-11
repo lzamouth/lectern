@@ -33,6 +33,7 @@ cat README.md | lectern -
 | <kbd>Ctrl</kbd>+<kbd>N</kbd> | New window |
 | <kbd>Alt</kbd>+<kbd>←</kbd>, <kbd>Alt</kbd>+<kbd>→</kbd> | Back and forward, after following links |
 | <kbd>F9</kbd> | Show the outline |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> | Copy the Markdown source of the selection, or of the whole document |
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> | Search |
 | <kbd>Ctrl</kbd>+<kbd>G</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Next and previous match |
 | <kbd>Ctrl</kbd>+<kbd>+</kbd>, <kbd>Ctrl</kbd>+<kbd>-</kbd>, <kbd>Ctrl</kbd>+<kbd>0</kbd> | Zoom in, zoom out, reset zoom |

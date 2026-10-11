@@ -20,17 +20,31 @@ pub fn parse(markdown: &str) -> Document {
 	let root = comrak::parse_document(&arena, markdown, &options);
 
 	let mut builder = Builder::default();
+	let blocks = builder.blocks(root);
 	Document {
-		blocks: builder.blocks(root),
+		blocks,
+		source: markdown.to_owned(),
+		leaf_lines: builder.leaf_lines,
 	}
 }
 
 #[derive(Default)]
 struct Builder {
+	/// See [`Document::leaf_lines`].
+	leaf_lines: Vec<(usize, usize)>,
 	anchorizer: Anchorizer,
 }
 
 impl Builder {
+	/// Records the source lines of a leaf block about to be added.
+	fn leaf<'a>(&mut self, node: &'a AstNode<'a>) {
+		let position = node.data.borrow().sourcepos;
+		self.leaf_lines.push((
+			position.start.line,
+			position.end.line.max(position.start.line),
+		));
+	}
+
 	fn blocks<'a>(&mut self, node: &'a AstNode<'a>) -> Vec<Block> {
 		let mut blocks = Vec::new();
 		for child in node.children() {
@@ -45,12 +59,14 @@ impl Builder {
 			NodeValue::Paragraph => {
 				let content = inlines(node);
 				if !content.is_empty() {
+					self.leaf(node);
 					blocks.push(Block::Paragraph(content));
 				}
 			}
 			NodeValue::Heading(heading) => {
 				let content = inlines(node);
 				let anchor = self.anchorizer.anchorize(&plain_text(&content));
+				self.leaf(node);
 				blocks.push(Block::Heading {
 					level: heading.level,
 					anchor,
@@ -59,6 +75,7 @@ impl Builder {
 			}
 			NodeValue::CodeBlock(code) => {
 				let text = code.literal.strip_suffix('\n').unwrap_or(&code.literal);
+				self.leaf(node);
 				blocks.push(Block::Code {
 					info: code.info.clone(),
 					text: text.to_owned(),
@@ -82,10 +99,14 @@ impl Builder {
 					}
 				}
 				if !content.is_empty() {
+					self.leaf(node);
 					blocks.push(Block::Paragraph(content));
 				}
 			}
-			NodeValue::ThematicBreak => blocks.push(Block::ThematicBreak),
+			NodeValue::ThematicBreak => {
+				self.leaf(node);
+				blocks.push(Block::ThematicBreak);
+			}
 			NodeValue::BlockQuote => blocks.push(Block::Quote(self.blocks(node))),
 			NodeValue::Alert(alert) => blocks.push(Block::Alert {
 				kind: match alert.alert_type {
@@ -159,6 +180,7 @@ impl Builder {
 						.collect::<Vec<_>>()
 				});
 				let header = rows.next().unwrap_or_default();
+				self.leaf(node);
 				blocks.push(Block::Table(Table {
 					alignments,
 					header,
@@ -552,6 +574,16 @@ mod tests {
 				(3, "C".to_owned(), "c".to_owned()),
 			]
 		);
+	}
+
+	#[test]
+	fn leaf_lines() {
+		let source =
+			"---\nfront: matter\n---\n\n# Title\n\n- a\n- b\n  continued\n\n```\ncode\n```\n";
+		let document = parse(source);
+		assert_eq!(document.leaf_lines, [(5, 5), (7, 7), (8, 9), (11, 13)]);
+		assert_eq!(document.source_lines(7, 9), "- a\n- b\n  continued");
+		assert_eq!(document.source_lines(11, 13), "```\ncode\n```");
 	}
 
 	#[test]

@@ -6,8 +6,9 @@
 //! `LECTERN_SNAPSHOT_SEARCH=text` searches the text before the picture.
 //! `LECTERN_SNAPSHOT_DELAY=milliseconds` waits longer before the picture.
 //! `LECTERN_SNAPSHOT_ACTION=app.name` activates an action before the picture.
-//! `LECTERN_SNAPSHOT_STEPS=link:url;action:win.name;…` follows links and
-//! activates actions, one every half second, before the picture.
+//! `LECTERN_SNAPSHOT_STEPS=link:url;select:start-end;action:win.name;…`
+//! follows links, selects text by character offsets and activates actions, one
+//! every half second, before the picture.
 
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,7 +24,7 @@ static STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Takes the picture requested by the environment, once. `follow_link` is
 /// used for the `link:` steps.
-pub fn snapshot_if_requested(window: &impl IsA<gtk::Window>, follow_link: impl Fn(&str) + 'static) {
+pub fn snapshot_if_requested(window: &impl IsA<gtk::Window>, run_step: impl Fn(&str) + 'static) {
 	let Some(path) = std::env::var_os("LECTERN_SNAPSHOT") else {
 		return;
 	};
@@ -35,7 +36,7 @@ pub fn snapshot_if_requested(window: &impl IsA<gtk::Window>, follow_link: impl F
 		let _ = window.activate_action(&action, None);
 	}
 
-	let follow_link = Rc::new(follow_link);
+	let run_step = Rc::new(run_step);
 	let steps = std::env::var("LECTERN_SNAPSHOT_STEPS").unwrap_or_default();
 	let steps: Vec<String> = steps
 		.split(';')
@@ -45,12 +46,13 @@ pub fn snapshot_if_requested(window: &impl IsA<gtk::Window>, follow_link: impl F
 	let steps_duration = STEP_DELAY * steps.len() as u32;
 	for (index, step) in steps.into_iter().enumerate() {
 		let window = window.clone();
-		let follow_link = follow_link.clone();
+		let run_step = run_step.clone();
 		glib::timeout_add_local_once(STEP_DELAY * (index as u32 + 1), move || {
-			if let Some(url) = step.strip_prefix("link:") {
-				follow_link(url);
-			} else if let Some(action) = step.strip_prefix("action:") {
-				let _ = window.activate_action(action, None);
+			match step.strip_prefix("action:") {
+				Some(action) => {
+					let _ = window.activate_action(action, None);
+				}
+				None => run_step(&step),
 			}
 		});
 	}

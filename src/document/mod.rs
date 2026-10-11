@@ -8,6 +8,11 @@ pub use parse::parse;
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Document {
 	pub blocks: Vec<Block>,
+	/// The Markdown source of the document.
+	pub source: String,
+	/// The source lines of each leaf block, in rendering order: headings,
+	/// paragraphs, code blocks, tables and rules. 1-based, end included.
+	pub leaf_lines: Vec<(usize, usize)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,6 +171,17 @@ pub struct OutlineItem {
 }
 
 impl Document {
+	/// The source lines `first..=last`, 1-based, without the final newline.
+	pub fn source_lines(&self, first: usize, last: usize) -> String {
+		let text: String = self
+			.source
+			.split_inclusive('\n')
+			.skip(first.saturating_sub(1))
+			.take(last + 1 - first.max(1))
+			.collect();
+		text.strip_suffix('\n').unwrap_or(&text).to_owned()
+	}
+
 	/// The headings of the document, in order, including those nested in
 	/// quotes and lists.
 	pub fn outline(&self) -> Vec<OutlineItem> {

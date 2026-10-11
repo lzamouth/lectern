@@ -109,6 +109,8 @@ mod imp {
 		pub(super) anchors: RefCell<HashMap<String, gtk::TextMark>>,
 		pub(super) decorations: RefCell<Vec<Decoration>>,
 		pub(super) embedded: RefCell<Vec<Embedded>>,
+		/// Buffer ranges of the leaf blocks, see [`Document::leaf_lines`].
+		pub(super) leaves: RefCell<Vec<(i32, i32)>>,
 		pub(super) matches: RefCell<Vec<Match>>,
 		pub(super) current_match: Cell<Option<usize>>,
 		/// Width for which embedded widgets were last sized.
@@ -219,6 +221,7 @@ impl MarkdownView {
 			anchors: HashMap::new(),
 			decorations: Vec::new(),
 			embedded: Vec::new(),
+			leaves: Vec::new(),
 		};
 		renderer.blocks(&document.blocks, Context::default());
 		renderer.finish();
@@ -227,6 +230,7 @@ impl MarkdownView {
 		imp.links.replace(renderer.links);
 		imp.decorations.replace(renderer.decorations);
 		imp.embedded.replace(renderer.embedded);
+		imp.leaves.replace(renderer.leaves);
 		self.resize_embedded();
 		let old_anchors = imp.anchors.replace(renderer.anchors);
 		for mark in old_anchors.values() {
@@ -246,6 +250,7 @@ impl MarkdownView {
 		view.set_document(
 			&Document {
 				blocks: vec![Block::Paragraph(content.to_vec())],
+				..Document::default()
 			},
 			base_dir,
 		);
@@ -405,6 +410,21 @@ impl MarkdownView {
 
 		drop(embedded);
 		self.scroll_to_position(state.scroll);
+	}
+
+	/// The indexes of the first and last leaf blocks touched by the
+	/// selection, if any. See [`Document::leaf_lines`].
+	pub fn selected_leaves(&self) -> Option<(usize, usize)> {
+		let (start, end) = self.buffer().selection_bounds()?;
+		let (start, end) = (start.offset(), end.offset());
+		let leaves = self.imp().leaves.borrow();
+		let mut touched = leaves
+			.iter()
+			.enumerate()
+			.filter(|(_, (leaf_start, leaf_end))| *leaf_start < end && start < *leaf_end)
+			.map(|(index, _)| index);
+		let first = touched.next()?;
+		Some((first, touched.next_back().unwrap_or(first)))
 	}
 
 	/// The vertical scrolling position, in pixels.
@@ -955,6 +975,8 @@ struct Renderer<'a> {
 	anchors: HashMap<String, gtk::TextMark>,
 	decorations: Vec<Decoration>,
 	embedded: Vec<Embedded>,
+	/// Buffer ranges of the leaf blocks, see [`Document::leaf_lines`].
+	leaves: Vec<(i32, i32)>,
 }
 
 impl Renderer<'_> {
@@ -966,6 +988,25 @@ impl Renderer<'_> {
 
 	fn block(&mut self, block: &Block, context: Context) {
 		let start = self.offset();
+		if matches!(
+			block,
+			Block::Heading { .. }
+				| Block::Paragraph(_)
+				| Block::Code { .. }
+				| Block::Table(_)
+				| Block::ThematicBreak
+		) {
+			// The end is updated once the block is rendered.
+			self.leaves.push((start, start));
+			let index = self.leaves.len() - 1;
+			self.block_content(block, context, start);
+			self.leaves[index].1 = self.offset();
+		} else {
+			self.block_content(block, context, start);
+		}
+	}
+
+	fn block_content(&mut self, block: &Block, context: Context, start: i32) {
 		match block {
 			Block::Heading {
 				level,
