@@ -1,7 +1,9 @@
 # Releasing Lectern
 
-Releases are published on GitHub, with a Flatpak bundle installable with
-`flatpak install --user lectern-X.Y.Z.flatpak`.
+Releases are published on GitHub, with a Flatpak bundle, and in a Flatpak
+repository hosted with GitHub Pages, at
+<https://lzamouth.github.io/lectern-flatpak/>. Installations from the
+repository, or from a bundle, get updates from that repository.
 
 ## Requirements
 
@@ -11,8 +13,34 @@ Releases are published on GitHub, with a Flatpak bundle installable with
   flatpak install flathub org.gnome.Sdk//51 org.freedesktop.Sdk.Extension.rust-stable//26.08
   ```
 
-- The GitHub CLI (`gh`), logged in with push access to the repository
+- The GitHub CLI (`gh`), logged in with push access to the repositories
 - A configured `build` directory (`meson setup build`)
+- The GPG key signing the Flatpak repository
+- A clone of the repository hosting the Flatpak repository
+
+## One-time setup
+
+1. Create a GPG key dedicated to signing the Flatpak repository, and keep its
+   private part safe:
+
+   ```sh
+   gpg --quick-generate-key "Lectern Flatpak <lionel@skunkcrafts.com>" ed25519 sign never
+   ```
+
+2. Create the repository hosting the Flatpak repository, serve it with GitHub
+   Pages from its `main` branch, and clone it next to this one:
+
+   ```sh
+   gh repo create lzamouth/lectern-flatpak --public --description "Flatpak repository of Lectern"
+   git clone git@github.com:lzamouth/lectern-flatpak.git ../lectern-flatpak
+   git -C ../lectern-flatpak commit --allow-empty -m "Create the Flatpak repository"
+   git -C ../lectern-flatpak push -u origin main
+   gh api repos/lzamouth/lectern-flatpak/pages -f "source[branch]=main" -f "source[path]=/"
+   ```
+
+The publish step needs the key in `LECTERN_GPG_KEY` (its fingerprint), and
+optionally `LECTERN_GPG_HOMEDIR` if it is not in the default GnuPG home. The
+clone is expected in `../lectern-flatpak`, or in `LECTERN_PAGES_DIR`.
 
 ## Steps
 
@@ -37,12 +65,15 @@ Releases are published on GitHub, with a Flatpak bundle installable with
 4. Publish the release:
 
    ```sh
-   build-aux/release.sh publish 0.2.0 path/to/notes.md
+   LECTERN_GPG_KEY=FINGERPRINT build-aux/release.sh publish 0.2.0 path/to/notes.md
    ```
 
-   This builds the Flatpak bundle in `dist/`, then asks for confirmation before
-   pushing `main` and the tag and creating the GitHub release with the notes
-   and the bundle.
+   This builds the release into the signed Flatpak repository, updates the
+   `.flatpakref` and `.flatpakrepo` files installing it, and builds the bundle
+   in `dist/`. It then asks for confirmation before pushing `main` and the tag,
+   creating the GitHub release with the notes and the bundle, and pushing the
+   Flatpak repository to GitHub Pages. GnuPG asks for the passphrase of the
+   key while signing.
 
 ## Versions
 
