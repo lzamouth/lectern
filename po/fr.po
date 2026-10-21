@@ -429,3 +429,7 @@ msgstr "Ouvrir un fichier Markdown"
 
 #~ msgid "Initial development version."
 #~ msgstr "Version de développement initiale."
+
+#: src/window.rs:1015
+msgid "Reloaded"
+msgstr "Rechargé"

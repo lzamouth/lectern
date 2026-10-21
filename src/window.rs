@@ -48,6 +48,8 @@ const CURRENT_HEADING_MARGIN: f64 = 48.0;
 
 /// Delay before reloading a changed file, to let editors finish saving it.
 const RELOAD_DELAY: Duration = Duration::from_millis(250);
+/// How long the subtitle tells that the document was reloaded.
+const RELOADED_DURATION: Duration = Duration::from_secs(5);
 
 mod imp {
 	use super::*;
@@ -104,6 +106,8 @@ mod imp {
 		pub file_monitor: RefCell<Option<gio::FileMonitor>>,
 		/// Pending reload, delayed until the file stops changing.
 		pub reload_source: RefCell<Option<glib::SourceId>>,
+		/// Restores the subtitle telling that the document was reloaded.
+		pub reloaded_source: RefCell<Option<glib::SourceId>>,
 		pub recent_handler: RefCell<Option<glib::SignalHandlerId>>,
 	}
 
@@ -163,6 +167,7 @@ mod imp {
 			if let Some(source) = self.rerender_source.take() {
 				source.remove();
 			}
+			self.clear_reloaded();
 		}
 
 		fn constructed(&self) {
@@ -199,6 +204,15 @@ mod imp {
 			if let Some(source) = self.reload_source.take() {
 				source.remove();
 			}
+		}
+
+		/// Stops telling that the document was reloaded, without restoring
+		/// the subtitle.
+		pub(super) fn clear_reloaded(&self) {
+			if let Some(source) = self.reloaded_source.take() {
+				source.remove();
+			}
+			self.window_title.remove_css_class("reloaded");
 		}
 	}
 
@@ -341,6 +355,7 @@ impl LecternWindow {
 			None => {
 				self.show_document(&document, base_dir.as_ref(), true);
 				imp.document.replace(Some(document));
+				self.show_reloaded();
 			}
 			Some(position) => {
 				self.update_title(&file);
@@ -382,6 +397,7 @@ impl LecternWindow {
 					monitor.cancel();
 				}
 				imp.file.replace(None);
+				imp.clear_reloaded();
 				let title = gettext("Standard Input");
 				imp.window_title.set_title(&title);
 				imp.window_title.set_subtitle("");
@@ -981,6 +997,7 @@ impl LecternWindow {
 	fn update_title(&self, file: &gio::File) {
 		let name = display_name(file);
 		let imp = self.imp();
+		imp.clear_reloaded();
 		imp.window_title.set_title(&name);
 		imp.window_title.set_subtitle(
 			&file
@@ -989,6 +1006,28 @@ impl LecternWindow {
 				.unwrap_or_default(),
 		);
 		self.set_title(Some(&name));
+	}
+
+	/// Tells in the subtitle, for a while, that the document was reloaded.
+	fn show_reloaded(&self) {
+		let imp = self.imp();
+		imp.clear_reloaded();
+		imp.window_title.set_subtitle(&gettext("Reloaded"));
+		imp.window_title.add_css_class("reloaded");
+		let source = glib::timeout_add_local_once(
+			RELOADED_DURATION,
+			glib::clone!(
+				#[weak(rename_to = window)]
+				self,
+				move || {
+					window.imp().reloaded_source.take();
+					if let Some(file) = window.file() {
+						window.update_title(&file);
+					}
+				}
+			),
+		);
+		imp.reloaded_source.replace(Some(source));
 	}
 
 	fn show_toast(&self, message: &str) {

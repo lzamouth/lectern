@@ -13,3 +13,10 @@
 .match-count {
 	padding: 4px 0;
 }
+
+/* Tells that the document was reloaded. */
+.reloaded .subtitle {
+	color: var(--accent-color);
+	font-weight: bold;
+	opacity: 1;
+}
